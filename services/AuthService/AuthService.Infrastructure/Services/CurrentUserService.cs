@@ -1,6 +1,8 @@
-﻿using HQMS.QueueService.Domain.Interfaces;
+﻿
+using AuthService.Domain.Interfaces;
+using Microsoft.AspNetCore.Http;
 
-namespace HQMS.QueueService.Infrastructure.Services
+namespace AuthService.Infrastructure.Services
 {
     public class CurrentUserService : ICurrentUserService
     {

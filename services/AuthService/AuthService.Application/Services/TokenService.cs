@@ -47,7 +47,7 @@ namespace AuthService.Application.Services
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var tokenExpiration = DateTime.UtcNow.AddMinutes(_jwt.ExpiryMinutes);
+            var tokenExpiration = DateTime.UtcNow.AddMinutes(_jwt.ExpirationInMinutes);
 
             var token = new JwtSecurityToken(
                 issuer: _jwt.Issuer,

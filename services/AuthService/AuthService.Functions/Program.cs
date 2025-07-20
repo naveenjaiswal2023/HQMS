@@ -1,19 +1,21 @@
-using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Hosting;
+﻿using AuthService.Functions.Middleware;
 
-namespace AuthService.Functions
+public class Program
 {
-    internal class Program
+    public static void Main(string[] args)
     {
-        static void Main(string[] args)
-        {
-            FunctionsDebugger.Enable();
+        var host = new HostBuilder()
+            .ConfigureFunctionsWorkerDefaults(worker =>
+            {
+                worker.UseMiddleware<ExceptionHandlingMiddleware>(); // Optional: global exception logging
+            })
+            .ConfigureServices(services =>
+            {
+                services.AddLogging(); // 🔥 Logging support
+                // services.AddScoped<IAuthService, AuthService>(); // Your DI
+            })
+            .Build();
 
-            var host = new HostBuilder()
-                .ConfigureFunctionsWorkerDefaults()
-                .Build();
-
-            host.Run();
-        }
+        host.Run();
     }
 }

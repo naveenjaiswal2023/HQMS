@@ -8,12 +8,18 @@
 
   <ItemGroup>
     <Folder Include="Enums\" />
-    <Folder Include="Events\" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MediatR" Version="13.0.0" />
-    <PackageReference Include="Microsoft.AspNet.Identity.EntityFramework" Version="2.2.4" />
+    <!-- ❌ REMOVE THIS OLD PACKAGE -->
+    <!-- <PackageReference Include="Microsoft.AspNet.Identity.EntityFramework" Version="2.2.4" /> -->
+
+    <!-- ✅ ADD THESE CORRECT PACKAGES -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.7" />
+    <!--<PackageReference Include="Microsoft.Extensions.Identity.Core" Version="8.0.7" />-->
+
   </ItemGroup>
 
 </Project>

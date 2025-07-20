@@ -1,54 +1,46 @@
-﻿using HQMS.QueueService.Application.Common.Interfaces;
-using HQMS.QueueService.Domain.Interfaces;
-using Microsoft.Extensions.Caching.Distributed;
+﻿using AuthService.Application.Common.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 
-namespace HQMS.QueueService.Infrastructure.Services
+namespace AuthService.Infrastructure.Services
 {
     public class CacheService : ICacheService
     {
-        private readonly IDistributedCache _cache;
-        private readonly IQueueItemRepository _queueRepository;
+        private readonly IMemoryCache _cache;
 
-        public CacheService(IDistributedCache cache, IQueueItemRepository queueRepository)
+        public CacheService(IMemoryCache cache)
         {
             _cache = cache;
-            _queueRepository = queueRepository;
         }
 
-        public async Task<T> GetAsync<T>(string key) where T : class
+        public Task<T?> GetAsync<T>(string key) where T : class
         {
-            var cached = await _cache.GetStringAsync(key);
-            if (cached == null)
-                return null;
-
-            return JsonSerializer.Deserialize<T>(cached);
+            _cache.TryGetValue(key, out T? value);
+            return Task.FromResult(value);
         }
 
-        public async Task SetAsync<T>(string key, T value, TimeSpan? expiry = null) where T : class
+        public Task SetAsync<T>(string key, T value, TimeSpan? expiry = null) where T : class
         {
-            var json = JsonSerializer.Serialize(value);
-            var options = new DistributedCacheEntryOptions();
+            var options = new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = expiry ?? TimeSpan.FromMinutes(30)
+            };
 
-            if (expiry.HasValue)
-                options.SetAbsoluteExpiration(expiry.Value);
-            else
-                options.SetAbsoluteExpiration(TimeSpan.FromMinutes(30));
-
-            await _cache.SetStringAsync(key, json, options);
+            _cache.Set(key, value, options);
+            return Task.CompletedTask;
         }
 
-        public async Task RemoveAsync(string key)
+        public Task RemoveAsync(string key)
         {
-            await _cache.RemoveAsync(key);
+            _cache.Remove(key);
+            return Task.CompletedTask;
         }
 
         public async Task UpdateQueueCacheAsync(Guid department)
         {
-            var queueData = await _queueRepository.GetWaitingPatientsByDepartmentAsync(department);
             var cacheKey = $"queue:{department}";
-            await SetAsync(cacheKey, queueData, TimeSpan.FromMinutes(15));
+            // var queueData = await _queueRepository.GetWaitingPatientsByDepartmentAsync(department);
+            // await SetAsync(cacheKey, queueData, TimeSpan.FromMinutes(15));
         }
-
     }
 }

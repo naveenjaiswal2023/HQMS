@@ -1,15 +1,16 @@
-﻿using Azure.Messaging.ServiceBus;
-using HQMS.QueueService.Application.Commands;
-using HQMS.QueueService.Application.Common.Interfaces;
-using HQMS.QueueService.Application.Handlers.Events;
-using HQMS.QueueService.Domain.Interfaces;
-using HQMS.QueueService.Infrastructure.Persistence;
-using HQMS.QueueService.Infrastructure.Repositories;
-using HQMS.QueueService.Infrastructure.Services;
-using HQMS.QueueService.Shared.Interfaces;
+﻿using AuthService.Application.Common.Interfaces;
+using AuthService.Domain.Interfaces;
+using AuthService.Infrastructure.Events;
+using AuthService.Infrastructure.Messaging;
+using AuthService.Infrastructure.Persistence;
+using AuthService.Infrastructure.Services;
+using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using SharedInfrastructure.Settings;
 
-namespace HQMS.QueueService.Infrastructure
+namespace AuthService.Infrastructure
 {
     public static class DependencyInjection
     {
@@ -20,10 +21,10 @@ namespace HQMS.QueueService.Infrastructure
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
             // Redis Cache
-            services.AddStackExchangeRedisCache(options =>
-            {
-                options.Configuration = configuration.GetConnectionString("Redis");
-            });
+            //services.AddStackExchangeRedisCache(options =>
+            //{
+            //    options.Configuration = configuration.GetConnectionString("Redis");
+            //});
 
             // Azure Service Bus
             services.AddSingleton<ServiceBusClient>(serviceProvider =>
@@ -31,6 +32,17 @@ namespace HQMS.QueueService.Infrastructure
                 var connectionString = configuration.GetConnectionString("ServiceBus");
                 return new ServiceBusClient(connectionString);
             });
+
+            services.AddSingleton<ServiceBusClient>(sp =>
+            {
+                var config = sp.GetRequiredService<IConfiguration>();
+                var connectionString = config["ServiceBus:ConnectionString"];
+                return new ServiceBusClient(connectionString);
+            });
+
+            services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
+
+
 
             //services.AddHttpClient<IPatientServiceClient, PatientServiceClient>(client =>
             //{
@@ -43,21 +55,21 @@ namespace HQMS.QueueService.Infrastructure
             //});
 
             // Repositories
-            services.AddScoped<IQueueItemRepository, QueueItemRepository>();
-            services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
-            // Services
+
+            //// Services
+            services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
+
+            services.AddMemoryCache();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
-            services.AddHttpContextAccessor(); // Required!
+            services.AddHttpContextAccessor();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
-            services.AddScoped<INotificationService, NotificationService>();
-            services.AddSingleton<ServiceBusClient>(sp =>
-            new ServiceBusClient(configuration["AzureServiceBus:ConnectionString"]));
-            services.AddHostedService<QueueScheduler>();
             services.AddScoped<ICacheService, CacheService>();
-            services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GenerateDoctorQueueCommand).Assembly));
-            services.AddScoped<IQueueDomainService, QueueDomainService>();
-            services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+            services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+            services.AddScoped<IAuthService, AuthService.Application.Services.AuthService>();
+            services.AddScoped<IEmailSender, EmailSender>();
+            //services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GenerateDoctorQueueCommand).Assembly));
+
 
             return services;
         }

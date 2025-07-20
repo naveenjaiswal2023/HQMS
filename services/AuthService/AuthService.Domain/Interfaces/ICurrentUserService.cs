@@ -1,4 +1,4 @@
-﻿namespace HQMS.QueueService.Domain.Interfaces
+﻿namespace AuthService.Domain.Interfaces
 {
     public interface ICurrentUserService
     {

@@ -1,34 +1,32 @@
 ﻿using AuthService.Domain.Common;
-using Microsoft.AspNet.Identity.EntityFramework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AuthService.Domain.Identity
 {
     public class ApplicationRole : IdentityRole
     {
+        [NotMapped]
         private readonly List<BaseDomainEvent> _domainEvents = new();
+        [NotMapped]
         public IReadOnlyCollection<BaseDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
-        // ✅ Add this for EF Core navigation
-        //public ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
-        //public ICollection<RoleMenu> RoleMenus { get; set; } = new List<RoleMenu>();
+        // Optional navigation
+        // public ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
 
         public ApplicationRole() : base() { }
 
-        public ApplicationRole(string roleName) : base(Guid.NewGuid().ToString())
+        public ApplicationRole(string roleName) : base(roleName)
         {
-            Name = roleName;
-            //AddDomainEvent(new RoleCreatedEvent(Id, roleName));
+            Id = Guid.NewGuid().ToString(); // override default string ID
         }
 
         public static ApplicationRole Create(string roleName)
         {
-            return new ApplicationRole(roleName);
+            return new ApplicationRole(roleName)
+            {
+                NormalizedName = roleName.ToUpperInvariant()
+            };
         }
 
         public void Update(string newName)
@@ -36,16 +34,14 @@ namespace AuthService.Domain.Identity
             if (Name != newName)
             {
                 Name = newName;
-                //AddDomainEvent(new RoleUpdatedEvent(Id, Name));
+                NormalizedName = newName.ToUpperInvariant();
             }
         }
 
         public void MarkAsDeleted()
         {
-            //AddDomainEvent(new RoleDeletedEvent(Id, Name));
+            // Add domain event here if needed
         }
-
-        //public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
 
         public void ClearDomainEvents() => _domainEvents.Clear();
     }

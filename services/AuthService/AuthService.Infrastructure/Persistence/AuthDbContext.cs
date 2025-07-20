@@ -1,78 +1,110 @@
-﻿
-using AuthService.Domain.Common;
+﻿using AuthService.Domain.Common;
+using AuthService.Domain.Identity;
+using AuthService.Domain.Interfaces;
 using HQMS.QueueService.Domain.Entities;
-using HQMS.QueueService.Domain.Interfaces;
 using MediatR;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Data.Common;
 
 namespace AuthService.Infrastructure.Persistence
 {
-    public class AuthDbContext : DbContext
+    public class AuthDbContext : IdentityDbContext<ApplicationUser, ApplicationRole,string>
     {
-        private readonly IMediator _mediator;
-        private readonly ICurrentUserService _currentUserService;
+        private readonly ICurrentUserService _userContext;
+        private readonly IDomainEventPublisher _eventPublisher;
+
         public AuthDbContext(
             DbContextOptions<AuthDbContext> options,
-            IMediator mediator,
-            ICurrentUserService currentUserService) : base(options)
+            ICurrentUserService userContext,
+            IDomainEventPublisher eventPublisher
+        )
+            : base(options)
         {
-            _mediator = mediator;
-            _currentUserService = currentUserService;
+            _userContext = userContext;
+            _eventPublisher = eventPublisher;
         }
 
-        
+        public DbConnection GetConnection() => Database.GetDbConnection();
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
             base.OnModelCreating(modelBuilder);
+
+            // Fix for BaseDomainEvent - ignore it if it's abstract
+            modelBuilder.Ignore<BaseDomainEvent>();
+
+            // Or if you need it for domain events, configure the inheritance hierarchy
+            // modelBuilder.Entity<BaseDomainEvent>()
+            //     .HasDiscriminator<string>("EventType");
+
+            // Configure Identity entities with your custom types
+            modelBuilder.Entity<ApplicationUser>();
+            modelBuilder.Entity<ApplicationRole>();
+            //modelBuilder.Entity<ApplicationUser>(entity =>
+            //{
+            //    //entity.ToTable("Users");
+            //    // Add any additional configuration for ApplicationUser
+            //});
+
+            //modelBuilder.Entity<ApplicationRole>(entity =>
+            //{
+            //    //entity.ToTable("Roles");
+            //    // Add any additional configuration for ApplicationRole
+            //});
+
+            // Apply other configurations
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuthDbContext).Assembly);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            var currentUser = _currentUserService.UserName ?? "System";
+            ApplyAuditInfo();
 
-            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
-            {
-                switch (entry.State)
-                {
-                    case EntityState.Added:
-                        entry.Entity.CreatedAt = DateTime.UtcNow;
-                        entry.Entity.CreatedBy = currentUser;
-                        break;
-
-                    case EntityState.Modified:
-                        entry.Entity.UpdatedAt = DateTime.UtcNow;
-                        entry.Entity.UpdatedBy = currentUser;
-                        break;
-                }
-            }
+            var domainEvents = ChangeTracker.Entries<BaseEntity>()
+                .SelectMany(e => e.Entity.DomainEvents)
+                .Where(e => e != null)
+                .ToList();
 
             var result = await base.SaveChangesAsync(cancellationToken);
 
-            await DispatchDomainEventsAsync();
+            foreach (var entity in ChangeTracker.Entries<BaseEntity>())
+            {
+                entity.Entity.ClearDomainEvents();
+            }
+
+            foreach (var domainEvent in domainEvents)
+            {
+                await _eventPublisher.PublishAsync(domainEvent, cancellationToken);
+            }
 
             return result;
         }
 
-        private async Task DispatchDomainEventsAsync()
+        public override int SaveChanges()
         {
-            var domainEntities = ChangeTracker
-                .Entries<BaseEntity>()
-                .Where(e => e.Entity.DomainEvents != null && e.Entity.DomainEvents.Any())
-                .ToList();
+            return SaveChangesAsync().GetAwaiter().GetResult();
+        }
 
-            var domainEvents = domainEntities
-                .SelectMany(e => e.Entity.DomainEvents)
-                .ToList();
+        private void ApplyAuditInfo()
+        {
+            var user = _userContext.UserName ?? "System";
 
-            domainEntities.ForEach(e => e.Entity.ClearDomainEvents());
-
-            foreach (var domainEvent in domainEvents)
+            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
-                await _mediator.Publish(domainEvent);
+                if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.CreatedAt = DateTime.UtcNow;
+                    entry.Entity.CreatedBy = user;
+                }
+                else if (entry.State == EntityState.Modified)
+                {
+                    entry.Entity.UpdatedAt = DateTime.UtcNow;
+                    entry.Entity.UpdatedBy = user;
+                }
             }
         }
     }
