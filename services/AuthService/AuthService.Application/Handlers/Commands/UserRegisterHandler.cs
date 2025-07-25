@@ -5,6 +5,7 @@ using AuthService.Domain.Identity;
 using AuthService.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using System.Data;
 using System.Web;
 
 namespace AuthService.Application.Handlers.Commands
@@ -64,7 +65,14 @@ namespace AuthService.Application.Handlers.Commands
             //await _emailSender.SendEmailAsync(user.Email, "Confirm your email", message);
 
             // Publish domain event
-            await _mediator.Publish(new UserRegisteredEvent(user.Id, user.Email));
+            var userRegisteredEvent = new UserRegisteredEvent(
+                user.Id,
+                user.Email,
+                user.UserName,
+                request.Role,
+                DateTime.UtcNow
+            );   
+            await _mediator.Publish(userRegisteredEvent);
 
             return Result<string>.Success("User registered. Please confirm your email.");
         }

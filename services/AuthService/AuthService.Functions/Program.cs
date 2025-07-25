@@ -12,7 +12,7 @@ public class Program
             .ConfigureServices(services =>
             {
                 services.AddLogging(); // 🔥 Logging support
-                // services.AddScoped<IAuthService, AuthService>(); // Your DI
+                
             })
             .Build();
 

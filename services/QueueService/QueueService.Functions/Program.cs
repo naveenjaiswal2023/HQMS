@@ -1,19 +1,38 @@
+﻿using MediatR;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using QueueService.Application.Queries;
+using QueueService.Functions.Middleware;
 
-namespace QueueService.Functions
+public class Program
 {
-    internal class Program
+    public static void Main(string[] args)
     {
-        static void Main(string[] args)
-        {
-            FunctionsDebugger.Enable();
+        var host = new HostBuilder()
+            .ConfigureFunctionsWorkerDefaults(worker =>
+            {
+                
+                worker.UseMiddleware<ExceptionHandlingMiddleware>();
+            })
+            .ConfigureServices(services =>
+            {
+                // ✅ Add logging
+                services.AddLogging();
 
-            var host = new HostBuilder()
-                .ConfigureFunctionsWorkerDefaults()
-                .Build();
+                // ✅ Register MediatR handlers from Application layer
+                services.AddMediatR(cfg =>
+                {
+                    cfg.RegisterServicesFromAssembly(typeof(GetUpcomingAppointmentsQuery).Assembly); // Replace with a real IRequest or handler
+                });
 
-            host.Run();
-        }
+                // ✅ Register application services, repositories, etc.
+                // services.AddScoped<IUserService, UserService>();
+                // services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+            })
+            .Build();
+
+        host.Run();
     }
 }

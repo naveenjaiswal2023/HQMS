@@ -34,28 +34,12 @@ namespace AuthService.Infrastructure.Persistence
         {
             base.OnModelCreating(modelBuilder);
 
-            // Fix for BaseDomainEvent - ignore it if it's abstract
             modelBuilder.Ignore<BaseDomainEvent>();
-
-            // Or if you need it for domain events, configure the inheritance hierarchy
-            // modelBuilder.Entity<BaseDomainEvent>()
-            //     .HasDiscriminator<string>("EventType");
 
             // Configure Identity entities with your custom types
             modelBuilder.Entity<ApplicationUser>();
             modelBuilder.Entity<ApplicationRole>();
-            //modelBuilder.Entity<ApplicationUser>(entity =>
-            //{
-            //    //entity.ToTable("Users");
-            //    // Add any additional configuration for ApplicationUser
-            //});
-
-            //modelBuilder.Entity<ApplicationRole>(entity =>
-            //{
-            //    //entity.ToTable("Roles");
-            //    // Add any additional configuration for ApplicationRole
-            //});
-
+            
             // Apply other configurations
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuthDbContext).Assembly);
         }
