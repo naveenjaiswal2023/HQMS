@@ -1,4 +1,6 @@
-﻿using FluentValidation;
+﻿using AuthService.Application.Common.Behaviors;
+using AuthService.Application.Common.Behaviours;
+using FluentValidation;
 using FluentValidation.AspNetCore;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;

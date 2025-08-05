@@ -44,14 +44,6 @@ namespace AuthService.Application.Handlers.Commands
 
             var token = await _authService.GenerateJwtTokenAsync(user);
 
-            // ✅ Ensure the user is tracked
-            _context.Attach(user); // This should be implemented in IAuthDbContext if not already
-
-            // ✅ Add domain event
-            user.AddDomainEvent(new UserLoggedInEvent(Guid.Parse(user.Id), user.UserName, DateTime.UtcNow));
-
-            // ✅ SaveChanges triggers domain event publisher from AuthDbContext
-            await _context.SaveChangesAsync(cancellationToken);
 
             return Result<TokenDto>.Success(token);
         }

@@ -20,20 +20,16 @@ namespace QueueService.Application.Handlers.Queries
 
         public async Task<List<AppointmentDto>> Handle(GetUpcomingAppointmentsQuery request, CancellationToken cancellationToken)
         {
-            var externalAppointments = await _appointmentClient.GetUpcomingAppointmentsAsync(request.FromTime, request.ToTime);
 
             var result = externalAppointments.Select(a => new AppointmentDto
             {
-                AppointmentId = a.AppointmentId,
                 PatientId = a.PatientId,
+                AppointmentDateTime = a.AppointmentDate,
                 DoctorId = a.DoctorId,
-                DepartmentId = a.DepartmentId,
-                HospitalId = a.HospitalId,
-                Status = (AppointmentService.Domain.Enums.AppointmentStatus)a.Status,
-                AppointmentDateTime = a.AppointmentDateTime // ✅ use existing field
             }).ToList();
 
             return result;
         }
+
     }
 }

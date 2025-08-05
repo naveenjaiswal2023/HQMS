@@ -19,11 +19,9 @@ namespace AuthService.Application.Handlers.Commands
         public UserRegisterHandler(
             UserManager<ApplicationUser> userManager,
             RoleManager<ApplicationRole> roleManager,
-            IUnitOfWork unitOfWork)
         {
             _userManager = userManager;
             _roleManager = roleManager;
-            _unitOfWork = unitOfWork;
         }
 
         public async Task<Result<string>> Handle(UserRegisterCommand request, CancellationToken cancellationToken)
@@ -54,23 +52,15 @@ namespace AuthService.Application.Handlers.Commands
 
             await _userManager.AddToRoleAsync(user, request.Role);
 
-            // Generate token for confirmation (optional in handler)
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = HttpUtility.UrlEncode(token);
             var confirmUrl = $"https://your-client.com/confirm-email?userId={user.Id}&token={encodedToken}";
 
-            // ✅ Raise domain event (email can be sent in handler)
-            user.AddDomainEvent(new UserRegisteredEvent(
-                Guid.Parse(user.Id),
                 user.Email,
                 user.UserName,
                 request.Role,
                 confirmUrl,
                 DateTime.UtcNow
-            ));
-
-            // ✅ Triggers domain event dispatch via DbContext
-            await _unitOfWork.SaveAsync(cancellationToken);
 
             return Result<string>.Success("User registered. Please confirm your email.");
         }

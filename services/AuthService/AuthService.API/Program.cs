@@ -46,7 +46,6 @@ if (string.IsNullOrEmpty(dbPassword))
 var actualConnectionString = connTemplate.Replace("_QmsDbPassword_", dbPassword);
 Console.WriteLine($"[ENV: {environment.EnvironmentName}] Connection String SET: {(!string.IsNullOrWhiteSpace(actualConnectionString)).ToString()}");
 
-// ✅ Register DbContext
 builder.Services.AddDbContext<AuthDbContext>(options =>
 {
     options.UseSqlServer(actualConnectionString, sqlOptions =>
@@ -55,7 +54,6 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
     });
 });
 
-// ✅ Identity Setup
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.Password.RequiredLength = 6;
@@ -121,6 +119,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// ✅ Register services AFTER DbContext & Identity
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(configuration);
 
@@ -136,32 +135,21 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ✅ Swagger Setup
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Auth Service API", Version = "v1" });
 
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.Http,
         Scheme = "Bearer",
         BearerFormat = "JWT",
-        In = ParameterLocation.Header,
         Description = "Enter 'Bearer' followed by your token."
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        {
             new OpenApiSecurityScheme
+        {
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
             },
             Array.Empty<string>()
         }
@@ -170,7 +158,7 @@ builder.Services.AddSwaggerGen(c =>
     c.AddServer(new OpenApiServer
     {
         Url = "https://localhost:7260/auth" // Match your YARP route
-    });
+});
 });
 
 builder.Services.AddControllers();
@@ -204,8 +192,6 @@ if (app.Environment.IsDevelopment())
 
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service API V1");
-        c.RoutePrefix = "swagger";
     });
 
     // ✅ Seed roles and admin user
@@ -251,6 +237,7 @@ if (app.Environment.IsDevelopment())
             }
         }
     }
+
 }
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

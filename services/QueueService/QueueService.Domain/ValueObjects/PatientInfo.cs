@@ -12,13 +12,8 @@ namespace QueueService.Domain.ValueObjects
         public int Age { get; private set; }
         public string Gender { get; private set; }
 
-        private PatientInfo() { }
-
-        public PatientInfo(string name, int age, string gender)
+            
         {
-            Name = name;
-            Age = age;
-            Gender = gender;
         }
     }
 }

@@ -17,8 +17,6 @@ namespace Contracts.Appointments
         public DateTime ScheduledDate { get; set; }
         public TimeSpan ScheduledTime { get; set; }
 
-        public AppointmentStatus Status { get; set; }
 
-        public DateTime AppointmentDateTime => ScheduledDate + ScheduledTime;
     }
 }

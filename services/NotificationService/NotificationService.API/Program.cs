@@ -13,28 +13,15 @@ builder.Host.UseSerilog((context, configuration) =>
 
 builder.Services.AddSignalR();
 
-builder.Services.AddSingleton(new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
-builder.Services.AddScoped<INotificationSender, SignalRNotificationSender>();
-builder.Services.AddHostedService<QueueItemCalledConsumer>();
 
-builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials()
-              .SetIsOriginAllowed(_ => true);
-    });
-});
 
-// Middleware for exception handling
-//builder.Services.AddTransient<ExceptionHandlingMiddleware>();
-var app = builder.Build();
-app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-app.UseCors();
 
-app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
+
+internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+{
+    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+}

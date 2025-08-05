@@ -24,15 +24,8 @@ namespace AuthService.Infrastructure
             services.AddDbContext<AuthDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-            // ✅ Azure Service Bus
             services.AddSingleton<ServiceBusClient>(sp =>
             {
-                var connectionString = configuration["ServiceBus:ConnectionString"]
-                    ?? configuration.GetConnectionString("ServiceBus");
-
-                if (string.IsNullOrWhiteSpace(connectionString))
-                    throw new InvalidOperationException("Azure Service Bus connection string is not configured.");
-
                 return new ServiceBusClient(connectionString);
             });
 
@@ -41,31 +34,25 @@ namespace AuthService.Infrastructure
             // ✅ Caching
             services.AddMemoryCache();
 
-            // ✅ JWT Settings
-            services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
-            // Register Internal Token Provider for internal service-to-service auth
-            services.AddHttpClient<IInternalTokenProvider, InternalTokenProvider>();
 
+            //services.AddHttpClient<IDoctorServiceClient, DoctorServiceClient>(client =>
+            //{
+            //    client.BaseAddress = new Uri(configuration["ServiceUrls:StaffService"]);
+            //});
 
-            // Register HTTP handler for authenticated requests
-            services.AddTransient<AuthenticatedHttpClientHandler>();
-            services.AddHttpClient<IInternalTokenProvider, InternalTokenProvider>(client =>
-            {
-                var baseUrl = configuration["InternalApiBaseUrl"];
-                if (string.IsNullOrWhiteSpace(baseUrl))
-                    throw new InvalidOperationException("Missing 'InternalApiBaseUrl' in configuration.");
 
                 client.BaseAddress = new Uri(baseUrl);
             });
 
-            // ✅ Domain Services
-            services.AddScoped<IAuthDbContext, AuthDbContext>();
-            services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
-            services.AddScoped<IAuthService, Application.Services.AuthService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddHttpContextAccessor();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<ICacheService, CacheService>();
+            services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+            services.AddScoped<IAuthService, AuthService.Application.Services.AuthService>();
             services.AddScoped<IEmailSender, EmailSender>();
+            //services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GenerateDoctorQueueCommand).Assembly));
 
             // ✅ Accessor
             services.AddHttpContextAccessor();

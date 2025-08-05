@@ -13,10 +13,7 @@ namespace QueueService.Domain.ValueObjects
 
         private DoctorInfo() { }
 
-        public DoctorInfo(string name, string specialization)
         {
-            Name = name;
-            Specialization = specialization;
         }
     }
 }

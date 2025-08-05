@@ -30,8 +30,6 @@ namespace QueueService.API.Controllers
 
             try
             {
-                var result = await _mediator.Send(command, cancellationToken);
-                return CreatedAtAction(nameof(GetById), new { id = result }, new { QueueItemId = result });
             }
             catch (Exception ex)
             {

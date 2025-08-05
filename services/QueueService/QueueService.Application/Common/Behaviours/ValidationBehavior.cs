@@ -1,3 +1,4 @@
+using AuthService.Application.Common.Models;
 using FluentValidation;
 using MediatR;
 using QueuehService.Application.Common.Models;

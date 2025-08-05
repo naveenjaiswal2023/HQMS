@@ -4,8 +4,10 @@ using Contracts.Doctors;
 using Contracts.Patients;
 using MediatR;
 using QueueService.Application.Commands;
+using QueueService.Application.Interfaces;
 using QueueService.Domain.Entities;
 using QueueService.Domain.Interfaces;
+using QueueService.Domain.Interfaces.ExternalServices;
 using QueueService.Domain.ValueObjects;
 using SharedInfrastructure.ExternalServices.Interfaces;
 using System;
@@ -27,13 +29,13 @@ namespace QueueService.Application.Handlers.Commands
         private readonly IMapper _mapper;
 
         public CreateQueueItemCommandHandler(
-        IQueueItemRepository queueItemRepository,
-        IUnitOfWork unitOfWork,
-        IDoctorServiceClient doctorClient,
-        IPatientServiceClient patientClient,
-        IHospitalServiceClient hospitalClient,
-        IAppointmentServiceClient appointmentClient,
-        IMapper mapper)
+            IQueueItemRepository queueItemRepository,
+            IUnitOfWork unitOfWork,
+            IDoctorServiceClient doctorClient,
+            IPatientServiceClient patientClient,
+            IHospitalServiceClient hospitalClient,
+            IAppointmentServiceClient appointmentClient,
+            IMapper mapper)
         {
             _queueItemRepository = queueItemRepository;
             _unitOfWork = unitOfWork;
@@ -68,11 +70,6 @@ namespace QueueService.Application.Handlers.Commands
                 command.HospitalId,
                 position,
                 estimatedWait,
-                queueNumber,
-                null, //appointmentInfo,
-                null // No need to pass patientInfo and doctorInfo here, as they are not used in the QueueItem constructor
-                //patientInfo,
-                //doctorInfo
             );
 
             await _queueItemRepository.AddAsync(queueItem);

@@ -141,6 +141,41 @@ namespace QueueService.Infrastructure.Migrations
 
                     b.ToTable("QueueItems", (string)null);
                 });
+
+            modelBuilder.Entity("QueueService.Domain.Entities.QueueItem", b =>
+                {
+                    b.OwnsOne("QueueService.Domain.ValueObjects.DoctorInfo", "DoctorInfo", b1 =>
+                        {
+                            b1.Property<Guid>("QueueItemId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("QueueItemId");
+
+                            b1.ToTable("QueueItems");
+
+                            b1.WithOwner()
+                                .HasForeignKey("QueueItemId");
+                        });
+
+                    b.OwnsOne("QueueService.Domain.ValueObjects.PatientInfo", "PatientInfo", b1 =>
+                        {
+                            b1.Property<Guid>("QueueItemId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.HasKey("QueueItemId");
+
+                            b1.ToTable("QueueItems");
+
+                            b1.WithOwner()
+                                .HasForeignKey("QueueItemId");
+                        });
+
+                    b.Navigation("DoctorInfo")
+                        .IsRequired();
+
+                    b.Navigation("PatientInfo")
+                        .IsRequired();
+                });
 #pragma warning restore 612, 618
         }
     }
