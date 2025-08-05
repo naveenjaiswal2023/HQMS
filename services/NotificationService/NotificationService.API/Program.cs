@@ -1,10 +1,15 @@
 using Azure.Messaging.ServiceBus;
+using NotificationService.API.Middleware;
 using NotificationService.Application.Interfaces;
 using NotificationService.Infrastructure.Messaging;
 using NotificationService.Infrastructure.Services;
 using NotificationService.SignalR.Hubs;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+// Add Serilog
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
 builder.Services.AddSignalR();
 
@@ -23,7 +28,11 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Middleware for exception handling
+//builder.Services.AddTransient<ExceptionHandlingMiddleware>();
 var app = builder.Build();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 app.UseCors();
 
 app.MapHub<NotificationHub>("/notificationHub");

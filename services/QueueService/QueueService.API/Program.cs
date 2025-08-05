@@ -1,12 +1,18 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using QueuehService.API.Middleware;
 using QueueService.Application;
 using QueueService.Infrastructure;
+using Serilog;
 using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add Serilog
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
 // ✅ Load configuration
 builder.Configuration
@@ -159,24 +165,7 @@ var app = builder.Build();
 // ✅ Configure middleware
 if (app.Environment.IsDevelopment())
 {
-    //app.UseSwagger(c =>
-    //{
-    //    c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
-    //    {
-    //        var pathBase = "/queue";
-    //        swaggerDoc.Servers = new List<OpenApiServer>
-    //        {
-    //            new OpenApiServer { Url = $"{httpReq.Scheme}://{httpReq.Host.Value}{pathBase}" }
-    //        };
-    //    });
-    //});
-
-    //app.UseSwaggerUI(c =>
-    //{
-    //    c.SwaggerEndpoint("/queue/swagger/v1/swagger.json", "Queue API V1");
-    //    c.RoutePrefix = "swagger";
-    //});
-
+   
     app.UseSwagger();
 
     app.UseSwaggerUI(c =>
@@ -186,6 +175,7 @@ if (app.Environment.IsDevelopment())
     });
 
 }
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors();

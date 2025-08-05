@@ -1,4 +1,5 @@
-﻿using AuthService.Application;
+﻿using AuthService.API.Middleware;
+using AuthService.Application;
 using AuthService.Application.Commands;
 using AuthService.Domain.Identity;
 using AuthService.Domain.Interfaces;
@@ -10,10 +11,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using SharedInfrastructure.Settings;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+// Add Serilog
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
 // ✅ Load configuration
 builder.Configuration
@@ -247,6 +252,7 @@ if (app.Environment.IsDevelopment())
         }
     }
 }
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors();

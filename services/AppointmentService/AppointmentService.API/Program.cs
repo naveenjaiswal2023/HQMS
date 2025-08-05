@@ -1,12 +1,17 @@
-﻿using AppointmentService.Application;
+﻿using AppointmentService.API.Middleware;
+using AppointmentService.Application;
 using AppointmentService.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+// Add Serilog
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
 // ✅ Load Configuration
 builder.Configuration
@@ -187,6 +192,7 @@ if (app.Environment.IsDevelopment())
     });
 
 }
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors();
