@@ -21,12 +21,16 @@ namespace QueueService.Application.Commands
             Guid patientId,
             Guid appointmentId,
             Guid departmentId,
+            Guid hospitalId
+            //string queueNumber
+            )
         {
             DoctorId = doctorId;
             PatientId = patientId;
             AppointmentId = appointmentId;
             DepartmentId = departmentId;
             HospitalId = hospitalId;
+            //QueueNumber = queueNumber;
         }
     }
 }

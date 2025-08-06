@@ -32,6 +32,8 @@ public class QueueSchedulerFunction
 
         try
         {
+            var fromTime = DateTime.UtcNow;
+            var toTime = fromTime.AddMinutes(15);
 
             var upcomingAppointments = await mediator.Send(
                 new GetUpcomingAppointmentsQuery(fromTime, toTime),
@@ -41,14 +43,20 @@ public class QueueSchedulerFunction
             {
                 try
                 {
-                    // Change: Convert appt.QueueNumber from string to int when passing to CreateQueueItemCommand
                     var command = new CreateQueueItemCommand(
                         appt.DoctorId,
                         appt.PatientId,
                         appt.AppointmentId,
                         appt.DepartmentId,
+                        appt.HospitalId
                     );
 
+                    var queueItemId = await mediator.Send(command, cancellationToken);
+                    _logger.LogInformation($"Queue item {queueItemId} created for appointment {appt.AppointmentId}");
+
+                    // Update status to "QueueGenerated"
+                    var appointmentClient = scope.ServiceProvider.GetRequiredService<IAppointmentServiceClient>();
+                    await appointmentClient.UpdateAppointmentStatusAsync(appt.AppointmentId, true);
 
                     _logger.LogInformation($"Appointment {appt.AppointmentId} status updated to QueueGenerated");
                 }

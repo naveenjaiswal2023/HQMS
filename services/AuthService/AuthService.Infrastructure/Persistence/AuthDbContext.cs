@@ -3,10 +3,8 @@ using AuthService.Domain.Common;
 using AuthService.Domain.Identity;
 using AuthService.Domain.Interfaces;
 using HQMS.QueueService.Domain.Entities;
-using MediatR;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Data.Common;
 
 namespace AuthService.Infrastructure.Persistence
@@ -19,6 +17,7 @@ namespace AuthService.Infrastructure.Persistence
         public AuthDbContext(
             DbContextOptions<AuthDbContext> options,
             ICurrentUserService userContext,
+            IDomainEventPublisher eventPublisher)
             : base(options)
         {
             _userContext = userContext;
@@ -28,19 +27,24 @@ namespace AuthService.Infrastructure.Persistence
         public DbConnection GetConnection() => Database.GetDbConnection();
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
+        // ✅ Expose Attach via IAuthDbContext
+        public void Attach<TEntity>(TEntity entity) where TEntity : class
         {
+            base.Attach(entity);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             ApplyAuditInfo();
 
+            var domainEvents = ChangeTracker.Entries<IBaseEntity>()
                 .SelectMany(e => e.Entity.DomainEvents)
                 .Where(e => e != null)
                 .ToList();
 
             var result = await base.SaveChangesAsync(cancellationToken);
 
+            foreach (var entity in ChangeTracker.Entries<IBaseEntity>())
             {
                 entity.Entity.ClearDomainEvents();
             }

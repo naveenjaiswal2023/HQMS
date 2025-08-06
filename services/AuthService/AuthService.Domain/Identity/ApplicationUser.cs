@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using AuthService.Domain.Common;
+using AuthService.Domain.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -10,7 +12,6 @@ namespace AuthService.Domain.Identity
         public string LastName { get; set; }
         public string Gender { get; set; }
         public DateTime DateOfBirth { get; set; }
-        //public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

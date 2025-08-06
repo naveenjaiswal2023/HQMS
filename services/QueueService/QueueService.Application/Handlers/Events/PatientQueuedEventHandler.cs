@@ -15,7 +15,9 @@ namespace QueueService.Application.Handlers.Events
             _publisher = publisher;
         }
 
+        public async Task HandleAsync(PatientQueuedEvent @event)
         {
+            await _publisher.PublishAsync(@event);
         }
     }
 }

@@ -71,10 +71,28 @@ namespace QueueService.Domain.Entities
 
             AddDomainEvent(new PatientQueuedEvent(Id, queueNumber, doctorId, patientId, appointmentId, JoinedAt));
         }
+        public void UpdatePosition(int newPosition)
+        {
+            if (newPosition < 1)
+                throw new ArgumentException("Position must be at least 1");
+            Position = newPosition;
+            AddDomainEvent(new QueueItemPositionUpdatedEvent(Id, newPosition));
+        }
         public void MarkAsCalled()
         {
             Status = QueueStatus.Called;
             CalledAt = DateTime.UtcNow;
+
+            AddDomainEvent(new QueueItemCalledEvent(
+                Id,
+                QueueNumber,
+                PatientInfo?.Name ?? "Unknown",
+                DoctorInfo?.Name ?? "Unknown",
+                //DoctorInfo?.RoomNumber ?? "N/A",
+                DepartmentId,
+                HospitalId,
+                CalledAt.Value
+            ));
         }
 
 
@@ -90,6 +108,12 @@ namespace QueueService.Domain.Entities
 
         public void MarkAsSkipped()
         {
+            if (Status != QueueStatus.Called && Status != QueueStatus.Pending)
+                throw new InvalidOperationException($"Cannot skip item in status {Status}.");
+
+            Status = QueueStatus.Skipped;
+            SkippedAt = DateTime.UtcNow;
+            AddDomainEvent(new QueueItemSkippedEvent(Id));
         }
 
         public void Cancel()
@@ -98,7 +122,8 @@ namespace QueueService.Domain.Entities
                 throw new InvalidOperationException($"Cannot cancel item in status {Status}.");
 
             Status = QueueStatus.Cancelled;
+            CancelledAt = DateTime.UtcNow;
+            AddDomainEvent(new QueueItemCancelledEvent(Id));
         }
     }
-
 }
