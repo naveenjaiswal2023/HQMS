@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace QueueService.Application.Handlers.Events
 {
-    public class PatientQueuedEventHandler : INotificationHandler<PatientQueuedEvent>
+    public class PatientQueuedEventHandler
     {
         private readonly IAzureServiceBusPublisher _publisher;
 
@@ -15,9 +15,9 @@ namespace QueueService.Application.Handlers.Events
             _publisher = publisher;
         }
 
-        public async Task Handle(PatientQueuedEvent notification, CancellationToken cancellationToken)
+        public async Task HandleAsync(PatientQueuedEvent @event)
         {
-            await _publisher.PublishAsync(notification, cancellationToken);
+            await _publisher.PublishAsync(@event);
         }
     }
 }

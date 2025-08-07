@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using QueueService.Domain.Common;
 using QueueService.Domain.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace QueueService.Domain.Events
 {
-    public class PatientQueuedEvent : IDomainEvent
+    public class PatientQueuedEvent : BaseDomainEvent, IDomainEvent
     {
         public Guid QueueItemId { get; }
         public string QueueNumber { get; }

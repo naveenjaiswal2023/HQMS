@@ -8,5 +8,6 @@
         Cancelled = 3,
         Called = 4,
         Snooze = 5,
+        Skipped=6
     }
 }

@@ -17,7 +17,7 @@ namespace AuthService.Functions.Functions
 
         [Function("LoginEventFunction")]
         public void Run(
-            [ServiceBusTrigger("user.loggedin.topic", "user.loggedin.sub", Connection = "AzureServiceBusConnectionString")]
+            [ServiceBusTrigger("user.loggedin.topic", "user.loggedin.sub", Connection = "ServiceBusConnection")]
             string message,
             FunctionContext context)
         {

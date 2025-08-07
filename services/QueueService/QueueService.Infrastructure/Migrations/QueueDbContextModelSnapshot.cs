@@ -62,6 +62,9 @@ namespace QueueService.Infrastructure.Migrations
                     b.Property<DateTime?>("CalledAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
 
@@ -107,6 +110,9 @@ namespace QueueService.Infrastructure.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<DateTime?>("SkippedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -117,6 +123,12 @@ namespace QueueService.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CancelledAt")
+                        .HasDatabaseName("IX_QueueItems_CancelledAt");
+
+                    b.HasIndex("SkippedAt")
+                        .HasDatabaseName("IX_QueueItems_SkippedAt");
 
                     b.HasIndex("PatientId", "Status")
                         .HasDatabaseName("IX_QueueItems_PatientId_Status");

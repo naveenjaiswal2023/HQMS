@@ -1,15 +1,15 @@
-using AuthService.Application.Common.Models;
 using FluentValidation;
 using MediatR;
+using QueuehService.Application.Common.Models;
 
-namespace AuthService.Application.Common.Behaviors 
+namespace QueueService.Application.Common.Behaviours
 {
-    public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> 
+    public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
         where TRequest : IRequest<TResponse>
     {
         private readonly IEnumerable<IValidator<TRequest>> _validators;
 
-        public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators) 
+        public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators)
         {
             _validators = validators;
         }

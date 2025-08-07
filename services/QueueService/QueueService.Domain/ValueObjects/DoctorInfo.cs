@@ -8,17 +8,15 @@ namespace QueueService.Domain.ValueObjects
 {
     public class DoctorInfo
     {
-        public Guid Id { get; }
-        public string Name { get; }
-        public string Specialization { get; }
+        public string Name { get; private set; }
+        public string Specialization { get; private set; }
 
         private DoctorInfo() { }
 
-        public DoctorInfo(Guid id, string name, string specialization)
+        public DoctorInfo(string name, string specialization)
         {
-            Id = id;
-            Name = name ?? throw new ArgumentNullException(nameof(name));
-            Specialization = specialization ?? string.Empty;
+            Name = name;
+            Specialization = specialization;
         }
     }
 }

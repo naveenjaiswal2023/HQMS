@@ -1,4 +1,6 @@
-﻿using MediatR;
+﻿using AuthService.Domain.Common;
+using AuthService.Domain.Interfaces;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,15 +9,17 @@ using System.Threading.Tasks;
 
 namespace AuthService.Domain.Events
 {
-    public class UserLoggedOutEvent : INotification
+    public class UserLoggedOutEvent : BaseDomainEvent, IDomainEvent
     {
-        public string UserId { get; }
-        public DateTime LoggedOutAt { get; }
+        public Guid UserId { get; }
+        public string Username { get; }
+        public DateTime LogoutTime { get; }
 
-        public UserLoggedOutEvent(string userId, DateTime loggedOutAt)
+        public UserLoggedOutEvent(Guid userId, string username, DateTime logoutTime)
         {
             UserId = userId;
-            LoggedOutAt = loggedOutAt;
+            Username = username;
+            LogoutTime = logoutTime;
         }
     }
 }

@@ -14,22 +14,23 @@ namespace QueueService.Application.Commands
         public Guid AppointmentId { get; set; }
         public Guid DepartmentId { get; set; }
         public Guid HospitalId { get; set; }
-        public string QueueNumber { get; set; }
+        //public string QueueNumber { get; set; }
 
         public CreateQueueItemCommand(
             Guid doctorId,
             Guid patientId,
             Guid appointmentId,
             Guid departmentId,
-            Guid hospitalId,
-            string queueNumber)
+            Guid hospitalId
+            //string queueNumber
+            )
         {
             DoctorId = doctorId;
             PatientId = patientId;
             AppointmentId = appointmentId;
             DepartmentId = departmentId;
             HospitalId = hospitalId;
-            QueueNumber = queueNumber;
+            //QueueNumber = queueNumber;
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using AuthService.Application;
+﻿using AuthService.API.Middleware;
+using AuthService.Application;
 using AuthService.Application.Commands;
 using AuthService.Domain.Identity;
 using AuthService.Domain.Interfaces;
@@ -9,10 +10,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Serilog;
 using SharedInfrastructure.Settings;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+// Add Serilog
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
 // ✅ Load configuration
 builder.Configuration
@@ -24,7 +30,7 @@ builder.Configuration
 var configuration = builder.Configuration;
 var environment = builder.Environment;
 
-// ✅ Build connection string BEFORE service registration
+// ✅ Build DB connection
 var connTemplate = configuration.GetConnectionString("AuthDbConnectionString")
     ?? Environment.GetEnvironmentVariable("AuthDbConnectionString");
 
@@ -40,7 +46,7 @@ if (string.IsNullOrEmpty(dbPassword))
 var actualConnectionString = connTemplate.Replace("_QmsDbPassword_", dbPassword);
 Console.WriteLine($"[ENV: {environment.EnvironmentName}] Connection String SET: {(!string.IsNullOrWhiteSpace(actualConnectionString)).ToString()}");
 
-// ✅ Register DbContext FIRST
+// ✅ Register DbContext
 builder.Services.AddDbContext<AuthDbContext>(options =>
 {
     options.UseSqlServer(actualConnectionString, sqlOptions =>
@@ -49,7 +55,7 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
     });
 });
 
-// ✅ Register Identity AFTER DbContext
+// ✅ Identity Setup
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.Password.RequiredLength = 6;
@@ -115,47 +121,57 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// ✅ Register services AFTER DbContext & Identity
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(configuration);
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
-// ✅ CORS
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        policy.WithOrigins("http://localhost:60424") // ✅ Your React frontend domain
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
-// ✅ Swagger
+
+// ✅ Swagger Setup
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "Auth Service API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Auth Service API", Version = "v1" });
 
-    c.AddSecurityDefinition("Bearer", new()
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Type = SecuritySchemeType.Http,
         Scheme = "Bearer",
         BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        In = ParameterLocation.Header,
         Description = "Enter 'Bearer' followed by your token."
     });
 
-    c.AddSecurityRequirement(new()
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            new OpenApiSecurityScheme
             {
-                Reference = new() { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" }
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
             },
             Array.Empty<string>()
         }
+    });
+    // 👇 Add server URL to Swagger for API Gateway compatibility
+    c.AddServer(new OpenApiServer
+    {
+        Url = "https://localhost:7260/auth" // Match your YARP route
     });
 });
 
@@ -166,10 +182,32 @@ var app = builder.Build();
 // ✅ Middleware
 if (app.Environment.IsDevelopment())
 {
+    // 👇 Rewrites Swagger server path to support API Gateway (/auth/)
+    //app.UseSwagger(c =>
+    //{
+    //    c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
+    //    {
+    //        var pathBase = "/auth"; // 👈 match the prefix used in API Gateway
+    //        swaggerDoc.Servers = new List<OpenApiServer>
+    //        {
+    //            new OpenApiServer { Url = $"{httpReq.Scheme}://{httpReq.Host.Value}{pathBase}" }
+    //        };
+    //    });
+    //});
+
+    //app.UseSwaggerUI(c =>
+    //{
+    //    // 👇 Change the route prefix and endpoint path
+    //    c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service API V1");
+    //    c.RoutePrefix = "swagger"; // Swagger UI available at /swagger
+    //});
+
     app.UseSwagger();
+
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Auth Service API V1");
+        c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service API V1");
+        c.RoutePrefix = "swagger";
     });
 
     // ✅ Seed roles and admin user
@@ -215,12 +253,23 @@ if (app.Environment.IsDevelopment())
             }
         }
     }
-
 }
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
-app.UseCors();
+
+// ❗ Required before CORS
+app.UseRouting();
+
+// ✅ CORS must come after routing
+app.UseCors("FrontendPolicy");
+
+// ✅ Auth middleware
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ✅ Map endpoints
 app.MapControllers();
+
 app.Run();
+

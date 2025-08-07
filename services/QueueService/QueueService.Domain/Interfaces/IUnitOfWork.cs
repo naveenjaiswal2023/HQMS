@@ -8,7 +8,8 @@ namespace QueueService.Domain.Interfaces
 {
     public interface IUnitOfWork
     {
-        Task<int> SaveAsync();
+        Task<int> SaveAsync(CancellationToken cancellationToken = default);
+        IQueueItemRepository QueueItems { get; }
         // Expose repositories here if needed:
         // IPatientRepository Patients { get; }
         // IDoctorRepository Doctors { get; }

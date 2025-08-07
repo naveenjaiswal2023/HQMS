@@ -1,4 +1,5 @@
 ﻿using AuthService.Application.Common.Interfaces;
+using AuthService.Application.Interfaces;
 using AuthService.Domain.Interfaces;
 using AuthService.Infrastructure.Events;
 using AuthService.Infrastructure.Messaging;
@@ -8,6 +9,9 @@ using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using SharedInfrastructure.ExternalServices;
+using SharedInfrastructure.ExternalServices.Interfaces;
+using SharedInfrastructure.Http;
 using SharedInfrastructure.Settings;
 
 namespace AuthService.Infrastructure
@@ -16,60 +20,55 @@ namespace AuthService.Infrastructure
     {
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
         {
-            // Database
+            // ✅ Database Context
             services.AddDbContext<AuthDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-            // Redis Cache
-            //services.AddStackExchangeRedisCache(options =>
-            //{
-            //    options.Configuration = configuration.GetConnectionString("Redis");
-            //});
-
-            // Azure Service Bus
-            services.AddSingleton<ServiceBusClient>(serviceProvider =>
-            {
-                var connectionString = configuration.GetConnectionString("ServiceBus");
-                return new ServiceBusClient(connectionString);
-            });
-
+            // ✅ Azure Service Bus
             services.AddSingleton<ServiceBusClient>(sp =>
             {
-                var config = sp.GetRequiredService<IConfiguration>();
-                var connectionString = config["ServiceBus:ConnectionString"];
+                var connectionString = configuration["ServiceBus:ConnectionString"]
+                    ?? configuration.GetConnectionString("ServiceBus");
+
+                if (string.IsNullOrWhiteSpace(connectionString))
+                    throw new InvalidOperationException("Azure Service Bus connection string is not configured.");
+
                 return new ServiceBusClient(connectionString);
             });
 
             services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
 
-
-
-            //services.AddHttpClient<IPatientServiceClient, PatientServiceClient>(client =>
-            //{
-            //    client.BaseAddress = new Uri(configuration["ServiceUrls:PatientService"]);
-            //});
-
-            //services.AddHttpClient<IDoctorServiceClient, DoctorServiceClient>(client =>
-            //{
-            //    client.BaseAddress = new Uri(configuration["ServiceUrls:StaffService"]);
-            //});
-
-            // Repositories
-
-
-            //// Services
-            services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
-
+            // ✅ Caching
             services.AddMemoryCache();
-            services.AddScoped<ICurrentUserService, CurrentUserService>();
-            services.AddHttpContextAccessor();
-            services.AddScoped<IUnitOfWork, UnitOfWork>();
-            services.AddScoped<ICacheService, CacheService>();
-            services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
-            services.AddScoped<IAuthService, AuthService.Application.Services.AuthService>();
-            services.AddScoped<IEmailSender, EmailSender>();
-            //services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(GenerateDoctorQueueCommand).Assembly));
 
+            // ✅ JWT Settings
+            services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+            // Register Internal Token Provider for internal service-to-service auth
+            services.AddHttpClient<IInternalTokenProvider, InternalTokenProvider>();
+
+
+            // Register HTTP handler for authenticated requests
+            services.AddTransient<AuthenticatedHttpClientHandler>();
+            services.AddHttpClient<IInternalTokenProvider, InternalTokenProvider>(client =>
+            {
+                var baseUrl = configuration["InternalApiBaseUrl"];
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                    throw new InvalidOperationException("Missing 'InternalApiBaseUrl' in configuration.");
+
+                client.BaseAddress = new Uri(baseUrl);
+            });
+
+            // ✅ Domain Services
+            services.AddScoped<IAuthDbContext, AuthDbContext>();
+            services.AddScoped<IUnitOfWork, UnitOfWork>();
+            services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
+            services.AddScoped<IAuthService, Application.Services.AuthService>();
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<ICacheService, CacheService>();
+            services.AddScoped<IEmailSender, EmailSender>();
+
+            // ✅ Accessor
+            services.AddHttpContextAccessor();
 
             return services;
         }

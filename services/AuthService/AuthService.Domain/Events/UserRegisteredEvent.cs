@@ -1,4 +1,6 @@
-﻿using MediatR;
+﻿using AuthService.Domain.Common;
+using AuthService.Domain.Interfaces;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,21 +10,23 @@ using System.Threading.Tasks;
 namespace AuthService.Domain.Events
 {
 
-    public class UserRegisteredEvent : INotification
+    public class UserRegisteredEvent : BaseDomainEvent, IDomainEvent
     {
-        public string UserId { get; set; }
-        public string Email { get; set; }
-        public string UserName { get; set; }
-        public string Role { get; set; }
-        //public DateTime RegisteredOn { get; set; }
+        public Guid UserId { get; }
+        public string Email { get; }
+        public string Username { get; }
+        public string Role { get; }
+        public string ConfirmUrl { get; }
+        public DateTime RegisteredAt { get; }
 
-        public UserRegisteredEvent(string userId, string email, string userName, string role, DateTime registeredOn)
+        public UserRegisteredEvent(Guid userId, string email, string username, string role, string confirmUrl, DateTime registeredAt)
         {
             UserId = userId;
             Email = email;
-            UserName = userName;
+            Username = username;
             Role = role;
-            //RegisteredOn = registeredOn;
+            ConfirmUrl = confirmUrl;
+            RegisteredAt = registeredAt;
         }
     }
 

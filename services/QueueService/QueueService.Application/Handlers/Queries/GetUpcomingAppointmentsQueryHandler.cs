@@ -1,8 +1,9 @@
 ﻿using MediatR;
 using QueueService.Application.DTOs;
 using QueueService.Application.Queries;
-using QueueService.Domain.Interfaces.ExternalServices;
+using SharedInfrastructure.ExternalServices.Interfaces;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,21 +20,20 @@ namespace QueueService.Application.Handlers.Queries
 
         public async Task<List<AppointmentDto>> Handle(GetUpcomingAppointmentsQuery request, CancellationToken cancellationToken)
         {
-            var externalAppointments = await _appointmentClient.GetUpcomingAppointmentsAsync(request.MinutesAhead);
+            var externalAppointments = await _appointmentClient.GetUpcomingAppointmentsAsync(request.FromTime, request.ToTime);
 
             var result = externalAppointments.Select(a => new AppointmentDto
             {
-                AppointmentId = a.Id,
+                AppointmentId = a.AppointmentId,
                 PatientId = a.PatientId,
-                AppointmentDateTime = a.AppointmentDate,
                 DoctorId = a.DoctorId,
-                DepartmentId = a.DepartmentId
-               
-                // Map any other fields as necessary
+                DepartmentId = a.DepartmentId,
+                HospitalId = a.HospitalId,
+                Status = (AppointmentService.Domain.Enums.AppointmentStatus)a.Status,
+                AppointmentDateTime = a.AppointmentDateTime // ✅ use existing field
             }).ToList();
 
             return result;
         }
-
     }
 }

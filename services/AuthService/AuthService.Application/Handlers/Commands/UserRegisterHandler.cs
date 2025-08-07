@@ -14,19 +14,16 @@ namespace AuthService.Application.Handlers.Commands
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<ApplicationRole> _roleManager;
-        private readonly IMediator _mediator;
-        private readonly IEmailSender _emailSender;
+        private readonly IUnitOfWork _unitOfWork;
 
         public UserRegisterHandler(
             UserManager<ApplicationUser> userManager,
             RoleManager<ApplicationRole> roleManager,
-            IMediator mediator,
-            IEmailSender emailSender)
+            IUnitOfWork unitOfWork)
         {
             _userManager = userManager;
             _roleManager = roleManager;
-            _mediator = mediator;
-            _emailSender = emailSender;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<Result<string>> Handle(UserRegisterCommand request, CancellationToken cancellationToken)
@@ -51,28 +48,29 @@ namespace AuthService.Application.Handlers.Commands
             if (!createResult.Succeeded)
                 return Result<string>.Failure(createResult.Errors.Select(e => e.Description).ToArray());
 
+            // Add role
             if (!await _roleManager.RoleExistsAsync(request.Role))
                 await _roleManager.CreateAsync(new ApplicationRole(request.Role));
 
             await _userManager.AddToRoleAsync(user, request.Role);
 
-            // Send confirmation email
+            // Generate token for confirmation (optional in handler)
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = HttpUtility.UrlEncode(token);
             var confirmUrl = $"https://your-client.com/confirm-email?userId={user.Id}&token={encodedToken}";
 
-            var message = $"<p>Hello {user.UserName},</p><p>Click the link to confirm your email: <a href='{confirmUrl}'>Confirm Email</a></p>";
-            //await _emailSender.SendEmailAsync(user.Email, "Confirm your email", message);
-
-            // Publish domain event
-            var userRegisteredEvent = new UserRegisteredEvent(
-                user.Id,
+            // ✅ Raise domain event (email can be sent in handler)
+            user.AddDomainEvent(new UserRegisteredEvent(
+                Guid.Parse(user.Id),
                 user.Email,
                 user.UserName,
                 request.Role,
+                confirmUrl,
                 DateTime.UtcNow
-            );   
-            await _mediator.Publish(userRegisteredEvent);
+            ));
+
+            // ✅ Triggers domain event dispatch via DbContext
+            await _unitOfWork.SaveAsync(cancellationToken);
 
             return Result<string>.Success("User registered. Please confirm your email.");
         }

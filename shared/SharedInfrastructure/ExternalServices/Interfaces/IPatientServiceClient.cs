@@ -1,0 +1,14 @@
+﻿using Contracts.Patients;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace SharedInfrastructure.ExternalServices.Interfaces
+{
+    public interface IPatientServiceClient
+    {
+        Task<PatientInfoDto> GetPatientInfoAsync(Guid patientId);
+    }
+}

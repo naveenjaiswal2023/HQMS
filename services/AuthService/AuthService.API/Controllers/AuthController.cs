@@ -7,7 +7,12 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using SharedInfrastructure.DTO;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using System.Web;
 
 namespace AuthService.API.Controllers
@@ -19,12 +24,16 @@ namespace AuthService.API.Controllers
         private readonly IMediator _mediator;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IEmailSender _emailSender;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IMediator mediator,UserManager<ApplicationUser> userManager, IEmailSender emailSender)
+        public AuthController(IMediator mediator,UserManager<ApplicationUser> userManager, IEmailSender emailSender, IConfiguration configuration, ILogger<AuthController> logger)
         {
             _mediator = mediator;
             _userManager = userManager;
             _emailSender = emailSender;
+            _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpPost("register")]
@@ -98,5 +107,41 @@ namespace AuthService.API.Controllers
 
             return result.Succeeded ? Ok("Email confirmed successfully.") : BadRequest("Invalid token.");
         }
+
+        [HttpPost("internal-token")]
+        public IActionResult GetInternalToken([FromBody] ClientCredentialsRequest request)
+        {
+            var clients = _configuration.GetSection("InternalClients").Get<List<ClientCredentialDto>>() ?? new();
+
+            var matchedClient = clients.FirstOrDefault(x =>
+                x.ClientId == request.ClientId && x.ClientSecret == request.ClientSecret);
+
+            if (matchedClient == null)
+                return Unauthorized("Invalid client credentials.");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:Key"]!));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expiration = DateTime.UtcNow.AddMinutes(Convert.ToDouble(_configuration["JwtSettings:ExpiryMinutes"] ?? "60"));
+
+            var claims = new[]
+            {
+                new Claim("client_id", matchedClient.ClientId),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["JwtSettings:Issuer"],
+                audience: _configuration["JwtSettings:Audience"],
+                claims: claims,
+                expires: expiration,
+                signingCredentials: creds);
+
+            return Ok(new InternalTokenResponse
+            {
+                AccessToken = new JwtSecurityTokenHandler().WriteToken(token),
+                Expiration = expiration
+            });
+        }
+
     }
 }

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AuthService.Application.Commands
 {
-    public class LogoutCommand : IRequest<Result<Unit>>
+    public class LogoutCommand : IRequest<Result<bool>>
     {
     }
 }

@@ -80,7 +80,8 @@ namespace AuthService.Application.Services
 
             return new TokenDto
             {
-                Token = new JwtSecurityTokenHandler().WriteToken(token),
+                //Token = new JwtSecurityTokenHandler().WriteToken(token),
+                Token = $"Bearer {new JwtSecurityTokenHandler().WriteToken(token)}",
                 UserId = user.Id,
                 Role = roleName,
                 RoleId = roleId,
