@@ -1,0 +1,57 @@
+parameters:
+  - name: appName
+    type: string
+  - name: projectPath
+    type: string
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+  - stage: BuildAndDeploy
+    jobs:
+      - job: BuildAndDeployJob
+        steps:
+
+          - task: UseDotNet@2
+            inputs:
+              packageType: 'sdk'
+              version: '8.x'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore Packages'
+            inputs:
+              command: 'restore'
+              projects: '${{ parameters.projectPath }}'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Build Project'
+            inputs:
+              command: 'build'
+              projects: '${{ parameters.projectPath }}'
+              arguments: '--configuration $(buildConfiguration)'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish Project'
+            inputs:
+              command: 'publish'
+              publishWebProjects: false
+              projects: '${{ parameters.projectPath }}'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+              zipAfterPublish: true
+
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Azure'
+            inputs:
+              azureSubscription: 'AzureServiceConnection'   # Change this to your actual connection name
+              appType: 'webApp'
+              appName: '${{ parameters.appName }}'
+              package: '$(Build.ArtifactStagingDirectory)/**/*.zip'

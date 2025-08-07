@@ -127,14 +127,16 @@ builder.Services.AddInfrastructureServices(configuration);
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
-// ✅ CORS
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        policy.WithOrigins("http://localhost:60424") // ✅ Your React frontend domain
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
+
 
 // ✅ Swagger Setup
 builder.Services.AddEndpointsApiExplorer();
@@ -255,10 +257,19 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
-app.UseCors();
+
+// ❗ Required before CORS
+app.UseRouting();
+
+// ✅ CORS must come after routing
+app.UseCors("FrontendPolicy");
+
+// ✅ Auth middleware
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ✅ Map endpoints
 app.MapControllers();
 
 app.Run();
+

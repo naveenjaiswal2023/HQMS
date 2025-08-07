@@ -38,15 +38,14 @@ namespace QueueService.Infrastructure.Events
                 throw new ArgumentNullException(nameof(@event));
             }
 
-            var eventType = @event.GetType().Name; // ✅ gets concrete class name
+            var eventType = @event.GetType().Name;
+            var topicName = _config["ServiceBus:Topics:PatientQueueEvents"];
 
-            var topicName = _config[$"ServiceBus:Topics:{eventType}"];
             if (string.IsNullOrWhiteSpace(topicName))
             {
-                _logger.LogError("No topic configured for event type: {EventType}", eventType);
-                throw new InvalidOperationException($"No topic configured for event type {eventType}");
+                _logger.LogError("No unified topic configured under 'PatientQueueEvents'");
+                throw new InvalidOperationException("No topic configured for PatientQueueEvents");
             }
-
 
             string jsonPayload;
             try
@@ -58,7 +57,6 @@ namespace QueueService.Infrastructure.Events
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
                     Converters = { new JsonStringEnumConverter() }
                 });
-
             }
             catch (Exception ex)
             {
@@ -71,31 +69,28 @@ namespace QueueService.Infrastructure.Events
                 ContentType = "application/json",
                 Subject = eventType
             };
-
             message.ApplicationProperties["Type"] = eventType;
 
             try
             {
-                var sender = _client.CreateSender(topicName);
+                await using var sender = _client.CreateSender(topicName);
                 await sender.SendMessageAsync(message, cancellationToken);
-                _logger.LogInformation("Published event {EventType} to topic {TopicName}", eventType, topicName);
+                _logger.LogInformation("✅ Published {EventType} to topic {TopicName}", eventType, topicName);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to publish event {EventType} to topic {TopicName}", eventType, topicName);
+                _logger.LogError(ex, "❌ Failed to publish {EventType} to topic {TopicName}", eventType, topicName);
                 throw;
             }
 
-            // Optional: MediatR in-process publishing (after external message sent)
             try
             {
                 await _mediator.Publish(@event, cancellationToken);
-                _logger.LogDebug("In-process MediatR event dispatched for {EventType}", eventType);
+                _logger.LogDebug("📢 In-process MediatR event dispatched for {EventType}", eventType);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred during MediatR dispatch for event {EventType}", eventType);
-                // Optionally swallow this or rethrow based on your retry/error strategy
+                _logger.LogError(ex, "MediatR dispatch failed for {EventType}", eventType);
             }
         }
     }

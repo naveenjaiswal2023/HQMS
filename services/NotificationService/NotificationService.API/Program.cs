@@ -1,6 +1,9 @@
 using Azure.Messaging.ServiceBus;
 using NotificationService.API.Middleware;
+using NotificationService.Application.Handlers;
 using NotificationService.Application.Interfaces;
+using NotificationService.Domain.Events;
+using NotificationService.Domain.Interface;
 using NotificationService.Infrastructure.Messaging;
 using NotificationService.Infrastructure.Services;
 using NotificationService.SignalR.Hubs;
@@ -15,7 +18,22 @@ builder.Services.AddSignalR();
 
 builder.Services.AddSingleton(new ServiceBusClient(builder.Configuration["ServiceBus:ConnectionString"]));
 builder.Services.AddScoped<INotificationSender, SignalRNotificationSender>();
-builder.Services.AddHostedService<QueueItemCalledConsumer>();
+//builder.Services.AddHostedService<QueueItemCalledConsumer>();
+builder.Services.AddSignalR();
+builder.Services.AddScoped<INotificationSender, SignalRNotificationSender>();
+
+
+builder.Services.AddHostedService<ServiceBusEventConsumer<QueueItemCalledEvent>>();
+builder.Services.AddHostedService<ServiceBusEventConsumer<QueueItemCompletedEvent>>();
+builder.Services.AddHostedService<ServiceBusEventConsumer<QueueItemCancelledEvent>>();
+builder.Services.AddHostedService<ServiceBusEventConsumer<QueueItemSkippedEvent>>();
+
+builder.Services.AddScoped<IEventHandler<QueueItemCalledEvent>, QueueItemCalledNotificationHandler>();
+builder.Services.AddScoped<IEventHandler<QueueItemCompletedEvent>, QueueItemCompletedNotificationHandler>();
+builder.Services.AddScoped<IEventHandler<QueueItemCancelledEvent>, QueueItemCancelledNotificationHandler>();
+builder.Services.AddScoped<IEventHandler<QueueItemSkippedEvent>, QueueItemSkippedNotificationHandler>();
+
+
 
 builder.Services.AddCors(options =>
 {

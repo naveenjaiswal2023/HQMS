@@ -7,13 +7,12 @@ using System.Threading.Tasks;
 
 namespace NotificationService.Domain.Events
 {
-    public class QueueItemCalledEvent : IDomainEvent
+    public class QueueCompletedEvent : IDomainEvent
     {
-        public string QueueItemId { get; set; }
-        public string DoctorId { get; set; }
-        public string PatientId { get; set; }
-        public DateTime CalledAt { get; set; }
+        public Guid QueueId { get; set; }
+        public Guid DoctorId { get; set; }
         public string DoctorName { get; set; }
+        public DateTime CompletedAt { get; set; }
 
         public DateTime OccurredOn => throw new NotImplementedException();
     }

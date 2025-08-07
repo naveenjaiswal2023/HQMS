@@ -9,6 +9,7 @@ namespace NotificationService.Application.Interfaces
 {
     public interface INotificationSender
     {
-        Task SendQueueCalledNotificationAsync(QueueItemCalledEvent evt);
+        Task SendNotificationAsync<T>(T evt) where T : class;
     }
+
 }
