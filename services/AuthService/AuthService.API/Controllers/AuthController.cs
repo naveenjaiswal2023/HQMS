@@ -43,6 +43,7 @@ namespace AuthService.API.Controllers
             return Ok(new { UserId = userId });
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginCommand command)
         {
