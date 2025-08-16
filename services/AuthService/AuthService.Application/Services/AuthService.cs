@@ -46,47 +46,53 @@ namespace AuthService.Application.Services
 
         public async Task<TokenDto> GenerateJwtTokenAsync(ApplicationUser user)
         {
+            // Get user role
             var roles = await _userManager.GetRolesAsync(user);
             var roleName = roles.FirstOrDefault() ?? "User";
             var role = await _roleManager.FindByNameAsync(roleName);
             var roleId = role?.Id ?? string.Empty;
 
-            var tokenExpiration = DateTime.UtcNow.AddMinutes(
-                Convert.ToDouble(_configuration["JwtSettings:ExpireMinutes"] ?? "30"));
+            // Token expiration
+            var expirationMinutes = Convert.ToDouble(_configuration["JwtSettings:ExpirationInMinutes"] ?? "60");
+            var tokenExpiration = DateTime.UtcNow.AddMinutes(expirationMinutes);
 
+            // Claims
             var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-                new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? ""),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, roleName),
-                new Claim("UserId", user.Id),
-                new Claim("RoleId", roleId)
-            };
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+        new Claim(JwtRegisteredClaimNames.UniqueName, user.UserName ?? ""),
+        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        new Claim(ClaimTypes.Role, roleName),
+        new Claim("UserId", user.Id),
+        new Claim("RoleId", roleId)
+    };
 
+            // Secret key
             var secretKey = _configuration["JwtSettings:Key"];
-            if (string.IsNullOrEmpty(secretKey))
+            if (string.IsNullOrWhiteSpace(secretKey))
                 throw new Exception("JWT Key is missing in configuration.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+            // Create token
             var token = new JwtSecurityToken(
                 issuer: _configuration["JwtSettings:Issuer"],
                 audience: _configuration["JwtSettings:Audience"],
                 claims: claims,
                 expires: tokenExpiration,
-                signingCredentials: creds);
+                signingCredentials: creds
+            );
 
+            // Return raw token (do NOT prepend "Bearer ")
             return new TokenDto
             {
-                //Token = new JwtSecurityTokenHandler().WriteToken(token),
-                Token = $"Bearer {new JwtSecurityTokenHandler().WriteToken(token)}",
+                Token = new JwtSecurityTokenHandler().WriteToken(token),
                 UserId = user.Id,
                 Role = roleName,
                 RoleId = roleId,
                 Expiration = tokenExpiration,
-                RefreshToken = "" // Optional: implement refresh token handling
+                RefreshToken = "" // optional
             };
         }
 

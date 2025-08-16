@@ -33,8 +33,36 @@ public class QueueItemRepository : IQueueItemRepository
 
     public async Task<IEnumerable<QueueItem>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.QueueItems.ToListAsync(cancellationToken);
+        var today = DateTime.UtcNow.Date;
+
+        return await _context.QueueItems
+            .Where(q => q.CreatedAt.Date == today)
+            .OrderBy(q => q.DoctorId)
+            .ThenBy(q => q.QueueNumber)
+            .ToListAsync(cancellationToken);
     }
+
+    public async Task<IEnumerable<QueueItem>> GetFilteredQueueItemsAsync(Guid hospitalId, Guid departmentId, Guid? doctorId = null, CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        var query = _context.QueueItems
+            .Where(q => q.CreatedAt.Date == today
+                        && q.HospitalId == hospitalId
+                        && q.DepartmentId == departmentId);
+
+        if (doctorId.HasValue)
+            query = query.Where(q => q.DoctorId == doctorId.Value);
+
+        return await query
+            .OrderBy(q => q.HospitalId)
+            .ThenBy(q => q.DepartmentId)
+            .ThenBy(q => q.DoctorId)
+            .ThenBy(q => q.QueueNumber)
+            .ToListAsync(cancellationToken);
+    }
+
+
 
     public async Task DeleteAsync(QueueItem entity, CancellationToken cancellationToken = default)
     {

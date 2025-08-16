@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using QueuehService.API.Middleware;
+using QueueService.API.Middleware;
 using QueueService.Application;
 using QueueService.Infrastructure;
 using Serilog;
@@ -11,11 +11,11 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ Serilog configuration
+// ------------------- Serilog -------------------
 builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
-// ✅ Load configuration
+// ------------------- Load Configuration -------------------
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -25,83 +25,55 @@ builder.Configuration
 var config = builder.Configuration;
 var env = builder.Environment;
 
-// ✅ Get connection string from environment variable
+// ------------------- Connection String -------------------
 var actualConnectionString = Environment.GetEnvironmentVariable("QueueDbConnectionString");
 if (string.IsNullOrWhiteSpace(actualConnectionString))
     throw new InvalidOperationException("QueueDbConnectionString environment variable is missing.");
 
 Console.WriteLine($"[ENV: {env.EnvironmentName}] QueueDbConnectionString Loaded: true");
 
-// ✅ Register HttpContextAccessor and Services
+// ------------------- Register Services -------------------
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(config, actualConnectionString);
 
-// ✅ Bind strongly typed JwtSettings
+// ------------------- JWT Settings -------------------
 var jwtSettingsSection = config.GetSection("JwtSettings");
 builder.Services.Configure<JwtSettings>(jwtSettingsSection);
 var jwtSettings = jwtSettingsSection.Get<JwtSettings>();
-
 if (string.IsNullOrWhiteSpace(jwtSettings.Key))
     throw new InvalidOperationException("JWT secret key is missing in configuration.");
 
-// ✅ JWT Authentication Configuration
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+// ------------------- Authentication -------------------
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings.Issuer,
-        ValidAudience = jwtSettings.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
-        ClockSkew = TimeSpan.Zero,
-        NameClaimType = ClaimTypes.NameIdentifier,
-        RoleClaimType = ClaimTypes.Role
-    };
-
-    options.Events = new JwtBearerEvents
-    {
-        OnTokenValidated = context =>
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            var claims = context.Principal?.Claims;
-            var hasRole = claims?.Any(c => c.Type == ClaimTypes.Role) == true;
-            var hasClientId = claims?.Any(c => c.Type == "client_id") == true;
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = ClaimTypes.NameIdentifier,
+            RoleClaimType = ClaimTypes.Role
+        };
+    });
 
-            if (!hasRole && !hasClientId)
-            {
-                context.Fail("Token does not contain required claims (role or client_id).");
-            }
-
-            return Task.CompletedTask;
-        }
-    };
-});
-
-// ✅ Authorization Policies
+// ------------------- Authorization -------------------
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("UserPolicy", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.RequireClaim(ClaimTypes.Role);
-    });
+        policy.RequireAuthenticatedUser().RequireClaim(ClaimTypes.Role));
 
     options.AddPolicy("InternalPolicy", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.RequireClaim("client_id");
-    });
+        policy.RequireAuthenticatedUser().RequireClaim("client_id"));
 });
 
-// ✅ CORS Configuration
+// ------------------- CORS -------------------
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -112,7 +84,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ✅ Swagger Configuration with Bearer Token Support
+// ------------------- Swagger -------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -124,8 +96,7 @@ builder.Services.AddSwaggerGen(options =>
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = @"JWT Authorization header using the Bearer scheme.  
-Enter your token below. Example: `Bearer eyJhbGciOi...`",
+        Description = "JWT Authorization header using Bearer scheme. Example: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -137,29 +108,22 @@ Enter your token below. Example: `Bearer eyJhbGciOi...`",
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             new List<string>()
         }
     });
 
-    options.AddServer(new OpenApiServer
-    {
-        Url = "https://localhost:7260/queue"
-    });
+    options.AddServer(new OpenApiServer { Url = "https://localhost:7260/queue" });
 });
 
-// ✅ Add Controllers
+// ------------------- Controllers -------------------
 builder.Services.AddControllers();
 
-// ✅ Build and Configure the App
+// ------------------- Build App -------------------
 var app = builder.Build();
 
-// ✅ Swagger and Exception Middleware
+// ------------------- Middleware -------------------
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -176,4 +140,5 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
 app.Run();

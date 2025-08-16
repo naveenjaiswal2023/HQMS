@@ -1,6 +1,6 @@
 using FluentValidation;
 using MediatR;
-using QueuehService.Application.Common.Models;
+using QueueService.Application.Common.Models;
 
 namespace QueueService.Application.Common.Behaviours
 {
