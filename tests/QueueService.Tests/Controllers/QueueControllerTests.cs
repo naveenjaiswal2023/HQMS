@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QueueService.Tests.Controllers
@@ -150,7 +151,7 @@ namespace QueueService.Tests.Controllers
         {
             var id = Guid.NewGuid();
 
-            var result = await _controller.GetById(id);
+            var result = await _controller.GetById(id, CancellationToken.None);
 
             Assert.IsType<OkResult>(result);
         }

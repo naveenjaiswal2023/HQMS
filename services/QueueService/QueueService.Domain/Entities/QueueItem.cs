@@ -1,5 +1,5 @@
-﻿using HQMS.API.Domain.Enum;
-using QueueService.Domain.Common;
+﻿using QueueService.Domain.Common;
+using QueueService.Domain.Enum;
 using QueueService.Domain.Events;
 using QueueService.Domain.ValueObjects;
 using System;

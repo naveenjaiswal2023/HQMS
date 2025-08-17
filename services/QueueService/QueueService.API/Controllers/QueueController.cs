@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QueueService.Application.Commands;
+using QueueService.Application.Queries;
 
 namespace QueueService.API.Controllers
 {
@@ -112,12 +113,51 @@ namespace QueueService.API.Controllers
         /// (Optional) Get queue item by ID (used in CreatedAtAction).
         /// This should be implemented if you return CreatedAtAction.
         /// </summary>
+        //[HttpGet("{id}")]
+        //public async Task<IActionResult> GetById(Guid id)
+        //{
+        //    var result = await _mediator.Send(new GetQueueDetailsQuery(id));
+        //    return Ok(result);
+        //}
+
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(Guid id)
+        public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
         {
-            // This should call a Query via MediatR to return the item.
-            // Implement only if needed for UI or CreatedAtAction.
-            return Ok(); // placeholder
+            var query = new GetQueueByIdQuery(id);
+            var result = await _mediator.Send(query, cancellationToken);
+
+            if (result == null)
+                return NotFound();
+
+            return Ok(result);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var result = await _mediator.Send(new GetAllQueueDetailsQuery());
+            return Ok(result);
+        }
+
+        [HttpGet("GetFilteredQueueItemsAsync")]
+        public async Task<IActionResult> GetAll(
+            [FromQuery] Guid hospitalId,
+            [FromQuery] Guid departmentId,
+            [FromQuery] Guid? doctorId = null,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            CancellationToken cancellationToken = default)
+        {
+            var query = new GetAllQueueDetailsQuery
+            {
+                HospitalId = hospitalId,
+                DepartmentId = departmentId,
+                DoctorId = doctorId,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+            var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
         }
     }
 }

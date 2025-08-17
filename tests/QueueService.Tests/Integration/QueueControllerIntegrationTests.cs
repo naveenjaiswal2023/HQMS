@@ -109,7 +109,7 @@ namespace QueueService.Tests.Integration
         {
             var id = Guid.NewGuid();
 
-            var result = await _controller.GetById(id);
+            var result = await _controller.GetById(id, CancellationToken.None);
 
             Assert.IsType<OkResult>(result);
         }

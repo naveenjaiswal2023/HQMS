@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using QueueService.Application.Common.Interfaces;
 using System.Text.Json;
 
@@ -6,41 +8,72 @@ namespace QueueService.Infrastructure.Services
 {
     public class CacheService : ICacheService
     {
-        private readonly IMemoryCache _cache;
+        private readonly IMemoryCache _memoryCache;
+        private readonly IDistributedCache _distributedCache;
+        private readonly bool _useDistributedCache;
 
-        public CacheService(IMemoryCache cache)
+        public CacheService(
+            IMemoryCache memoryCache,
+            IDistributedCache distributedCache,
+            IConfiguration configuration)
         {
-            _cache = cache;
+            _memoryCache = memoryCache;
+            _distributedCache = distributedCache;
+
+            // Read from appsettings.json: CacheSettings:UseDistributedCache = true/false
+            _useDistributedCache = configuration.GetValue<bool>("CacheSettings:UseDistributedCache");
         }
 
-        public Task<T?> GetAsync<T>(string key) where T : class
+        public async Task<T?> GetAsync<T>(string key)
         {
-            _cache.TryGetValue(key, out T? value);
-            return Task.FromResult(value);
-        }
-
-        public Task SetAsync<T>(string key, T value, TimeSpan? expiry = null) where T : class
-        {
-            var options = new MemoryCacheEntryOptions
+            if (_useDistributedCache)
             {
-                AbsoluteExpirationRelativeToNow = expiry ?? TimeSpan.FromMinutes(30)
-            };
+                var jsonData = await _distributedCache.GetStringAsync(key);
+                if (string.IsNullOrEmpty(jsonData))
+                    return default;
 
-            _cache.Set(key, value, options);
-            return Task.CompletedTask;
+                return JsonSerializer.Deserialize<T>(jsonData);
+            }
+            else
+            {
+                _memoryCache.TryGetValue(key, out T? value);
+                return value;
+            }
         }
 
-        public Task RemoveAsync(string key)
+        public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null)
         {
-            _cache.Remove(key);
-            return Task.CompletedTask;
+            if (_useDistributedCache)
+            {
+                var options = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = expiration ?? TimeSpan.FromMinutes(5)
+                };
+
+                var jsonData = JsonSerializer.Serialize(value);
+                await _distributedCache.SetStringAsync(key, jsonData, options);
+            }
+            else
+            {
+                var options = new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = expiration ?? TimeSpan.FromMinutes(5)
+                };
+
+                _memoryCache.Set(key, value, options);
+            }
         }
 
-        public async Task UpdateQueueCacheAsync(Guid department)
+        public async Task RemoveAsync(string key)
         {
-            var cacheKey = $"queue:{department}";
-            // var queueData = await _queueRepository.GetWaitingPatientsByDepartmentAsync(department);
-            // await SetAsync(cacheKey, queueData, TimeSpan.FromMinutes(15));
+            if (_useDistributedCache)
+            {
+                await _distributedCache.RemoveAsync(key);
+            }
+            else
+            {
+                _memoryCache.Remove(key);
+            }
         }
     }
 }

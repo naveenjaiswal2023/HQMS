@@ -1,46 +1,124 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
-using System.Text;
+using Yarp.ReverseProxy.Transforms;
+using Yarp.ReverseProxy.Model;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Serilog
-builder.Host.UseSerilog((context, configuration) =>
-    configuration.ReadFrom.Configuration(context.Configuration));
+// ---------- Configuration ----------
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 
-// ✅ Add YARP reverse proxy
+// ---------- Serilog ----------
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+builder.Host.UseSerilog();
+
+// ---------- JWT Authentication ----------
+var jwtSection = builder.Configuration.GetSection("JwtSettings");
+var signingKey = jwtSection.GetValue<string>("Key") ?? throw new InvalidOperationException("JwtSettings:Key required");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtSection.GetValue<string>("Issuer"),
+            ValidateAudience = true,
+            ValidAudience = jwtSection.GetValue<string>("Audience"),
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
+            {
+                Log.Warning("[JWT] Authentication failed: {Message}", ctx.Exception?.Message);
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Authenticated", policy => policy.RequireAuthenticatedUser());
+});
+
+// ---------- Rate Limiter ----------
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+    {
+        var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 5,
+            AutoReplenishment = true
+        });
+    });
+
+    options.RejectionStatusCode = 429;
+});
+
+// ---------- YARP Reverse Proxy ----------
 builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .AddTransforms(transformContext =>
+    {
+        transformContext.AddRequestTransform(async transform =>
+        {
+            var httpContext = transform.HttpContext;
 
-// ✅ Add Swagger for centralized API Gateway UI
+            // Forward Authorization header if present
+            if (httpContext.Request.Headers.TryGetValue("Authorization", out var auth) &&
+                !string.IsNullOrWhiteSpace(auth))
+            {
+                transform.ProxyRequest.Headers.Remove("Authorization");
+                transform.ProxyRequest.Headers.TryAddWithoutValidation("Authorization", auth.ToString());
+            }
+
+            // Ensure X-Correlation-ID
+            if (!httpContext.Request.Headers.ContainsKey("X-Correlation-ID"))
+                httpContext.Request.Headers["X-Correlation-ID"] = Guid.NewGuid().ToString();
+
+            if (httpContext.Request.Headers.TryGetValue("X-Correlation-ID", out var corr))
+                transform.ProxyRequest.Headers.TryAddWithoutValidation("X-Correlation-ID", corr.ToString());
+
+            await Task.CompletedTask;
+        });
+    });
+
+// ---------- Swagger ----------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "HQMS API Gateway",
-        Version = "v1"
-    });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "HQMS API Gateway", Version = "v1" });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",
+        Description = "JWT Authorization header using Bearer scheme. Example: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement {
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
+            new OpenApiSecurityScheme {
+                Reference = new OpenApiReference {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 }
@@ -50,110 +128,81 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// 🔐 Configure JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = "QMSAuthServer",
-
-            ValidateAudience = true,
-            ValidAudience = "QMSClient",
-
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes("Hospital#Que#Management@SecretKey123!")
-            ),
-
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
-            {
-                Console.WriteLine($"[JWT ERROR] {context.Exception.Message}");
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-builder.Services.AddAuthorization();
-
-// OPTIONAL: Centralized rate limiter (Uncomment to enable)
-builder.Services.AddRateLimiter(options =>
-{
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-    {
-        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-
-        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 10,
-            Window = TimeSpan.FromSeconds(60),
-            QueueLimit = 2,
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            AutoReplenishment = true
-        });
-    });
-
-    options.RejectionStatusCode = 429; // HTTP 429 Too Many Requests
-
-    options.OnRejected = async (context, token) =>
-    {
-        context.HttpContext.Response.StatusCode = 429;
-        context.HttpContext.Response.ContentType = "application/json";
-
-        var response = new
-        {
-            error = "Too many requests",
-            message = "Rate limit exceeded. Please wait before making more requests.",
-            retryAfterSeconds = 60
-        };
-
-        var json = System.Text.Json.JsonSerializer.Serialize(response);
-        await context.HttpContext.Response.WriteAsync(json, token);
-    };
-});
-
-
+// ---------- Build App ----------
 var app = builder.Build();
 
-// ✅ Use middleware
+// ---------- Middleware ----------
+app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseRateLimiter();
+
+// Skip auth for Swagger UI and swagger.json requests
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value?.ToLower() ?? "";
+    if (path.StartsWith("/swagger") || path.EndsWith("swagger.json"))
+    {
+        await next();
+        return;
+    }
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ✅ YARP with simple logging
+// ---------- Swagger UI ----------
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service");
+        c.SwaggerEndpoint("/appointments/swagger/v1/swagger.json", "Appointment Service");
+        c.SwaggerEndpoint("/queue/swagger/v1/swagger.json", "Queue Service");
+        c.RoutePrefix = "swagger";
+    });
+}
+
+// ---------- Root redirect ----------
+app.MapGet("/", ctx =>
+{
+    ctx.Response.Redirect("/swagger");
+    return Task.CompletedTask;
+});
+
+// ---------- Reverse Proxy ----------
 app.MapReverseProxy(proxyPipeline =>
 {
     proxyPipeline.Use(async (context, next) =>
     {
-        Console.WriteLine($"[Gateway] {context.Request.Method} {context.Request.Path}");
+        var proxyFeature = context.Features.Get<IReverseProxyFeature>();
+        var routeConfig = proxyFeature?.Route;
+
+        bool allowAnonymous = false;
+
+        if (routeConfig?.Config?.Metadata?.TryGetValue("AllowAnonymous", out var value) == true &&
+            string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            allowAnonymous = true;
+        }
+
+        if (allowAnonymous)
+        {
+            await next();
+            return;
+        }
+
+        if (!context.User.Identity?.IsAuthenticated ?? true)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new { error = "Unauthorized" });
+            return;
+        }
+
         await next();
     });
-});
-
-// ✅ Swagger UI (for aggregated services)
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service");
-    c.SwaggerEndpoint("/appointments/swagger/v1/swagger.json", "Appointment Service");
-    c.SwaggerEndpoint("/queue/swagger/v1/swagger.json", "Queue Service");
-    c.RoutePrefix = "swagger"; // Available at /swagger
-});
-
-// ✅ Redirect root (/) to Swagger
-app.MapGet("/", context =>
-{
-    context.Response.Redirect("/swagger");
-    return Task.CompletedTask;
 });
 
 app.Run();

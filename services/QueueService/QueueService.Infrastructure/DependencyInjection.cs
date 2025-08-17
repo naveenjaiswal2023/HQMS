@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using QueueService.Application.Common.Interfaces;
 using QueueService.Application.Handlers.Commands;
+using QueueService.Application.Services;
 using QueueService.Domain.Interfaces;
 using QueueService.Infrastructure.Events;
 using QueueService.Infrastructure.Messaging;
@@ -57,31 +58,6 @@ namespace QueueService.Infrastructure
             // ✅ External APIs (binds POCO)
             services.Configure<ServiceApiOptions>(configuration.GetSection("Services"));
 
-            //// ✅ HTTP Clients for External Services
-            //services.AddHttpClient<IHospitalServiceClient, HospitalServiceClient>((sp, client) =>
-            //{
-            //    var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
-            //    client.BaseAddress = new Uri(options.HospitalApi ?? throw new InvalidOperationException("HospitalApi is not configured."));
-            //});
-
-            //services.AddHttpClient<IAppointmentServiceClient, AppointmentServiceClient>((sp, client) =>
-            //{
-            //    var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
-            //    client.BaseAddress = new Uri(options.AppointmentApi ?? throw new InvalidOperationException("AppointmentApi is not configured."));
-            //});
-
-            //services.AddHttpClient<IDoctorServiceClient, DoctorServiceClient>((sp, client) =>
-            //{
-            //    var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
-            //    client.BaseAddress = new Uri(options.DoctorApi ?? throw new InvalidOperationException("DoctorApi is not configured."));
-            //});
-
-            //services.AddHttpClient<IPatientServiceClient, PatientServiceClient>((sp, client) =>
-            //{
-            //    var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
-            //    client.BaseAddress = new Uri(options.PatientApi ?? throw new InvalidOperationException("PatientApi is not configured."));
-            //});
-
             services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
 
             // ✅ External API configuration
@@ -120,6 +96,7 @@ namespace QueueService.Infrastructure
 
             // ✅ Common Infrastructure
             services.AddMemoryCache();
+            services.AddDistributedMemoryCache();
             services.AddHttpContextAccessor();
 
             // ✅ MediatR: CQRS handlers
@@ -129,6 +106,7 @@ namespace QueueService.Infrastructure
             // ✅ Application-layer abstractions
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<ICacheService, CacheService>();
+            services.AddScoped<IQueueQueryService, QueueQueryService>();
             services.AddScoped<IQueueItemRepository, QueueItemRepository>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
 
