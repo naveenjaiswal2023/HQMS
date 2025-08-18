@@ -91,6 +91,7 @@ namespace QueueService.Domain.Entities
                 //DoctorInfo?.RoomNumber ?? "N/A",
                 DepartmentId,
                 HospitalId,
+                DoctorId,
                 CalledAt.Value
             ));
         }

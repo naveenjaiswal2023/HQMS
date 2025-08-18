@@ -3,18 +3,20 @@ using AppointmentService.Domain.Interfaces;
 using AppointmentService.Infrastructure.Events;
 using AppointmentService.Infrastructure.Messaging;
 using AppointmentService.Infrastructure.Persistence;
-using AppointmentService.Infrastructure.Repositories;
 using AppointmentService.Infrastructure.Services;
 using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Extensions.Http;
 using SharedInfrastructure.ExternalServices;
 using SharedInfrastructure.ExternalServices.Interfaces;
 using SharedInfrastructure.Http;
 using SharedInfrastructure.Settings;
 using SharedInfrastructures.ExternalServices;
+using System.Net.Http;
 
 namespace AppointmentService.Infrastructure
 {
@@ -22,11 +24,19 @@ namespace AppointmentService.Infrastructure
     {
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration, string actualConnectionString)
         {
-            // ✅ EF Core: SQL Server with actual connection string
             services.AddDbContext<AppointmentDbContext>(options =>
-                options.UseSqlServer(actualConnectionString));
+            options.UseSqlServer(actualConnectionString, sqlOptions =>
+            {
+                // 🔹 Enable built-in retry on transient errors
+                sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 5,                // Retry up to 5 times
+                    maxRetryDelay: TimeSpan.FromSeconds(10), // Wait up to 10s between retries
+                    errorNumbersToAdd: null          // You can specify SQL error codes if needed
+                );
+            }));
 
-            // ✅ Azure Service Bus client (singleton)
+
+            // ✅ Azure Service Bus
             services.AddSingleton<ServiceBusClient>(sp =>
             {
                 var config = sp.GetRequiredService<IConfiguration>();
@@ -42,36 +52,59 @@ namespace AppointmentService.Infrastructure
             // ✅ External API configuration
             services.Configure<ServiceApiOptions>(configuration.GetSection("ServicesAuth"));
 
-            // ✅ Register token provider used by AuthenticatedHttpClientHandler
+            // ✅ Token provider & handler
             services.AddScoped<IInternalTokenProvider, InternalTokenProvider>();
-
-            // ✅ Register Authenticated handler
             services.AddTransient<AuthenticatedHttpClientHandler>();
 
-            // ✅ Register HttpClients with message handler
+            // 🔹 Define Retry & CircuitBreaker Policies
+            var retryPolicy = HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.NotFound) // Optional
+                .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))); // Exponential backoff
+
+            var circuitBreakerPolicy = HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .CircuitBreakerAsync(
+                    handledEventsAllowedBeforeBreaking: 5,
+                    durationOfBreak: TimeSpan.FromSeconds(30)
+                );
+
+            // 🔹 Register HttpClients with Polly policies
             services.AddHttpClient<IHospitalServiceClient, HospitalServiceClient>((sp, client) =>
             {
                 var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
                 client.BaseAddress = new Uri(options.HospitalApi ?? throw new InvalidOperationException("HospitalApi is not configured."));
-            }).AddHttpMessageHandler<AuthenticatedHttpClientHandler>();
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpClientHandler>()
+            .AddPolicyHandler(retryPolicy)
+            .AddPolicyHandler(circuitBreakerPolicy);
 
             services.AddHttpClient<IAppointmentServiceClient, AppointmentServiceClient>((sp, client) =>
             {
                 var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
                 client.BaseAddress = new Uri(options.AppointmentApi ?? throw new InvalidOperationException("AppointmentApi is not configured."));
-            }).AddHttpMessageHandler<AuthenticatedHttpClientHandler>();
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpClientHandler>()
+            .AddPolicyHandler(retryPolicy)
+            .AddPolicyHandler(circuitBreakerPolicy);
 
             services.AddHttpClient<IDoctorServiceClient, DoctorServiceClient>((sp, client) =>
             {
                 var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
                 client.BaseAddress = new Uri(options.DoctorApi ?? throw new InvalidOperationException("DoctorApi is not configured."));
-            }).AddHttpMessageHandler<AuthenticatedHttpClientHandler>();
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpClientHandler>()
+            .AddPolicyHandler(retryPolicy)
+            .AddPolicyHandler(circuitBreakerPolicy);
 
             services.AddHttpClient<IPatientServiceClient, PatientServiceClient>((sp, client) =>
             {
                 var options = sp.GetRequiredService<IOptions<ServiceApiOptions>>().Value;
                 client.BaseAddress = new Uri(options.PatientApi ?? throw new InvalidOperationException("PatientApi is not configured."));
-            }).AddHttpMessageHandler<AuthenticatedHttpClientHandler>();
+            })
+            .AddHttpMessageHandler<AuthenticatedHttpClientHandler>()
+            .AddPolicyHandler(retryPolicy)
+            .AddPolicyHandler(circuitBreakerPolicy);
 
             // ✅ Cache & Context
             services.AddMemoryCache();
@@ -86,5 +119,4 @@ namespace AppointmentService.Infrastructure
             return services;
         }
     }
-
 }
