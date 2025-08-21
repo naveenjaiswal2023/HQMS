@@ -1,7 +1,7 @@
 name: Deploy-AppointmentService
 
 extends:
-  template: ../templates/dotnet-deploy-template.yml
+  template: ../../templates/dotnet-deploy-template.yml
   parameters:
     appName: 'hqms-doctor-api'
-    projectPath: 'src/Services/AppointmentService/AppointmentService.csproj'
+    projectPath: 'services\AppointmentService\AppointmentService.API\AppointmentService.API.csproj'

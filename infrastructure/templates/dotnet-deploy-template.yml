@@ -30,13 +30,13 @@ stages:
             displayName: 'Restore Packages'
             inputs:
               command: 'restore'
-              projects: '${{ parameters.projectPath }}'
+              projects: ${{ parameters.projectPath }}
 
           - task: DotNetCoreCLI@2
             displayName: 'Build Project'
             inputs:
               command: 'build'
-              projects: '${{ parameters.projectPath }}'
+              projects: ${{ parameters.projectPath }}
               arguments: '--configuration $(buildConfiguration)'
 
           - task: DotNetCoreCLI@2
@@ -44,7 +44,7 @@ stages:
             inputs:
               command: 'publish'
               publishWebProjects: false
-              projects: '${{ parameters.projectPath }}'
+              projects: ${{ parameters.projectPath }}
               arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
               zipAfterPublish: true
 
@@ -53,5 +53,5 @@ stages:
             inputs:
               azureSubscription: 'AzureServiceConnection'   # Change this to your actual connection name
               appType: 'webApp'
-              appName: '${{ parameters.appName }}'
+              appName: ${{ parameters.appName }}
               package: '$(Build.ArtifactStagingDirectory)/**/*.zip'

@@ -1,104 +1,91 @@
-﻿using Azure.Messaging.ServiceBus;
-using Microsoft.Azure.Functions.Worker;
+﻿using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QueueService.Domain.Events;
 using QueueService.Functions.Publishers;
 using System.Text.Json;
+using System.Threading;
 
-namespace QueueService.Functions.Functions;
-
-public class NotificationEventHandlerFunction
+namespace QueueService.Functions.Functions
 {
-    private readonly ILogger _logger;
-    private readonly NotificationEventPublisher _notificationPublisher;
-
-    public NotificationEventHandlerFunction(ILoggerFactory loggerFactory, ServiceBusClient serviceBusClient)
+    public class NotificationEventHandlerFunction
     {
-        _logger = loggerFactory.CreateLogger<NotificationEventHandlerFunction>();
-        _notificationPublisher = new NotificationEventPublisher(serviceBusClient);
-    }
+        private readonly ILogger _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-    [Function("HandleQueueItemCalledEvent")]
-    public async Task HandleQueueItemCalledEvent(
-        [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.called.sub", Connection = "ServiceBusConnection")]
-        string messageBody)
-    {
-        var options = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
         };
-        _logger.LogInformation("🔔 Received message: {MessageBody}", messageBody);
-        var @event = JsonSerializer.Deserialize<QueueItemCalledEvent>(messageBody,options);
-        if (@event == null)
+
+        public NotificationEventHandlerFunction(ILoggerFactory loggerFactory, IServiceScopeFactory scopeFactory)
         {
-            _logger.LogWarning("❌ Deserialization failed for QueueItemCalledEvent.");
-            return;
+            _logger = loggerFactory.CreateLogger<NotificationEventHandlerFunction>();
+            _scopeFactory = scopeFactory;
         }
 
-        _logger.LogInformation("📥 Handling QueueItemCalledEvent for QueueItemId: {QueueItemId}", @event.QueueItemId);
-        await _notificationPublisher.PublishAsync(@event);
-    }
-
-    [Function("HandleQueueItemCompletedEvent")]
-    public async Task HandleQueueItemCompletedEvent(
-        [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.completed.sub", Connection = "ServiceBusConnection")]
-        string messageBody)
-    {
-        var options = new JsonSerializerOptions
+        [Function("HandleQueueItemCalledEvent")]
+        public async Task HandleQueueItemCalledEvent(
+            [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.called.sub", Connection = "ServiceBusConnection")]
+            string messageBody, CancellationToken cancellationToken)
         {
-            PropertyNameCaseInsensitive = true
-        };
-        _logger.LogInformation("🔔 Received message: {MessageBody}", messageBody,options);
-        var @event = JsonSerializer.Deserialize<QueueItemCompletedEvent>(messageBody);
-        if (@event == null)
-        {
-            _logger.LogWarning("❌ Deserialization failed for QueueItemCompletedEvent.");
-            return;
+            await HandleEventAsync<QueueItemCalledEvent>(messageBody, "QueueItemCalledEvent", cancellationToken);
         }
 
-        _logger.LogInformation("📥 Handling QueueItemCompletedEvent for QueueItemId: {QueueItemId}", @event.QueueItemId);
-        await _notificationPublisher.PublishAsync(@event);
-    }
-
-    [Function("HandleQueueItemCancelledEvent")]
-    public async Task HandleQueueItemCancelledEvent(
-        [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.cancelled.sub", Connection = "ServiceBusConnection")]
-        string messageBody)
-    {
-        var options = new JsonSerializerOptions
+        [Function("HandleQueueItemCompletedEvent")]
+        public async Task HandleQueueItemCompletedEvent(
+            [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.completed.sub", Connection = "ServiceBusConnection")]
+            string messageBody, CancellationToken cancellationToken)
         {
-            PropertyNameCaseInsensitive = true
-        };
-        _logger.LogInformation("🔔 Received message: {MessageBody}", messageBody);
-        var @event = JsonSerializer.Deserialize<QueueItemCancelledEvent>(messageBody, options);
-        if (@event == null)
-        {
-            _logger.LogWarning("❌ Deserialization failed for QueueItemCancelledEvent.");
-            return;
+            await HandleEventAsync<QueueItemCompletedEvent>(messageBody, "QueueItemCompletedEvent", cancellationToken);
         }
 
-        _logger.LogInformation("📥 Handling QueueItemCancelledEvent for QueueItemId: {QueueItemId}", @event.QueueItemId);
-        await _notificationPublisher.PublishAsync(@event);
-    }
-
-    [Function("HandleQueueItemSkippedEvent")]
-    public async Task HandleQueueItemSkippedEvent(
-        [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.skipped.sub", Connection = "ServiceBusConnection")]
-        string messageBody)
-    {
-        var options = new JsonSerializerOptions
+        [Function("HandleQueueItemCancelledEvent")]
+        public async Task HandleQueueItemCancelledEvent(
+            [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.cancelled.sub", Connection = "ServiceBusConnection")]
+            string messageBody, CancellationToken cancellationToken)
         {
-            PropertyNameCaseInsensitive = true
-        };
-        _logger.LogInformation("🔔 Received message: {MessageBody}", messageBody);
-        var @event = JsonSerializer.Deserialize<QueueItemSkippedEvent>(messageBody,options);
-        if (@event == null)
-        {
-            _logger.LogWarning("❌ Deserialization failed for QueueItemSkippedEvent.");
-            return;
+            await HandleEventAsync<QueueItemCancelledEvent>(messageBody, "QueueItemCancelledEvent", cancellationToken);
         }
 
-        _logger.LogInformation("📥 Handling QueueItemSkippedEvent for QueueItemId: {QueueItemId}", @event.QueueItemId);
-        await _notificationPublisher.PublishAsync(@event);
+        [Function("HandleQueueItemSkippedEvent")]
+        public async Task HandleQueueItemSkippedEvent(
+            [ServiceBusTrigger("queue.patient.events.topic", "queue.patient.skipped.sub", Connection = "ServiceBusConnection")]
+            string messageBody, CancellationToken cancellationToken)
+        {
+            await HandleEventAsync<QueueItemSkippedEvent>(messageBody, "QueueItemSkippedEvent", cancellationToken);
+        }
+
+        private async Task HandleEventAsync<T>(string messageBody, string eventType, CancellationToken cancellationToken)
+            where T : class
+        {
+            using var activity = new System.Diagnostics.Activity($"Handle{eventType}").Start();
+
+            try
+            {
+                _logger.LogInformation("🔔 Received {EventType} message: {MessageBody}", eventType, messageBody);
+
+                var @event = JsonSerializer.Deserialize<T>(messageBody, JsonOptions);
+
+                if (@event == null)
+                {
+                    _logger.LogWarning("❌ Deserialization failed for {EventType}", eventType);
+                    return;
+                }
+
+                // resolve publisher per invocation
+                using var scope = _scopeFactory.CreateScope();
+                var publisher = scope.ServiceProvider.GetRequiredService<NotificationEventPublisher>();
+
+                await publisher.PublishAsync(@event, cancellationToken);
+
+                _logger.LogInformation("✅ Successfully processed {EventType}", eventType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error processing {EventType}. Body: {MessageBody}", eventType, messageBody);
+                throw; // trigger retry
+            }
+        }
     }
 }

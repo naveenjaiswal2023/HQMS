@@ -17,6 +17,8 @@ namespace QueueService.Domain.Events
         //public string RoomNumber { get; init; }
         public Guid DepartmentId { get; init; }
         public Guid HospitalId { get; init; }
+        public Guid DoctorId { get; init; }
+
         public DateTime CalledAt { get; init; }
 
         public QueueItemCalledEvent(
@@ -27,6 +29,7 @@ namespace QueueService.Domain.Events
             //string roomNumber,
             Guid departmentId,
             Guid hospitalId,
+            Guid doctorid,
             DateTime calledAt)
         {
             QueueItemId = queueItemId;
@@ -36,6 +39,7 @@ namespace QueueService.Domain.Events
             //RoomNumber = roomNumber;
             DepartmentId = departmentId;
             HospitalId = hospitalId;
+            DoctorId = doctorid;
             CalledAt = calledAt;
         }
     }
