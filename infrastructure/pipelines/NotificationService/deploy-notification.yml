@@ -8,7 +8,7 @@ stages:
     jobs:
       - job: Deploy
         steps:
-          - template: ../templates/dotnet-deploy-template.yml
+          - template: ../../templates/dotnet-deploy-template.yml
             parameters:
               appName: 'NotificationServiceApp'
               projectPath: 'services/NotificationService/NotificationService.API/NotificationService.API.csproj'
