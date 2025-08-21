@@ -4,4 +4,4 @@ extends:
   template: ../../templates/dotnet-deploy-template.yml
   parameters:
     appName: 'hqms-notification-api'
-    projectPath: 'Services/NotificationService/NotificationService.csproj'
+    projectPath: 'services\NotificationService\NotificationService.API\NotificationService.API.csproj'

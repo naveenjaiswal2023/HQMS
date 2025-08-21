@@ -4,4 +4,4 @@ extends:
   template: ../../templates/dotnet-deploy-template.yml
   parameters:
     appName: 'hqms-doctor-api'
-    projectPath: '../Services/AppointmentService/AppointmentService.csproj'
+    projectPath: 'services\AppointmentService\AppointmentService.API\AppointmentService.API.csproj'
