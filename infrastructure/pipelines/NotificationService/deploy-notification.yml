@@ -1,7 +1,14 @@
-name: Deploy-NotificationService
+trigger:
+  branches:
+    include:
+      - main
 
-extends:
-  template: ../../templates/dotnet-deploy-template.yml
-  parameters:
-    appName: 'hqms-notification-api'
-    projectPath: 'services\NotificationService\NotificationService.API\NotificationService.API.csproj'
+stages:
+  - stage: DeployNotification
+    jobs:
+      - job: Deploy
+        steps:
+          - template: ../templates/dotnet-deploy-template.yml
+            parameters:
+              appName: 'NotificationServiceApp'
+              projectPath: 'services/NotificationService/NotificationService.API/NotificationService.API.csproj'

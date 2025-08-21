@@ -1,7 +1,15 @@
 name: Deploy-AuthService
 
-extends:
-  template: ../../templates/dotnet-deploy-template.yml
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - services/AuthService/**
+
+stages:
+- template: ../../templates/dotnet-deploy-template.yml
   parameters:
     appName: 'hqms-auth-api'
-    projectPath: 'services\AuthService\AuthService.API\AuthService.API.csproj'
+    projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'

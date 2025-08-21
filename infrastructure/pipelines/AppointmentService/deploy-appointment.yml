@@ -1,7 +1,14 @@
-name: Deploy-AppointmentService
+trigger:
+  branches:
+    include:
+      - main
 
-extends:
-  template: ../../templates/dotnet-deploy-template.yml
-  parameters:
-    appName: 'hqms-doctor-api'
-    projectPath: 'services\AppointmentService\AppointmentService.API\AppointmentService.API.csproj'
+stages:
+  - stage: DeployAppointment
+    jobs:
+      - job: Deploy
+        steps:
+          - template: ../templates/dotnet-deploy-template.yml
+            parameters:
+              appName: 'AppointmentServiceApp'
+              projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
