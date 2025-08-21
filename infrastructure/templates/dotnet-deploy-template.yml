@@ -4,23 +4,15 @@ parameters:
   - name: projectPath
     type: string
 
-trigger:
-  branches:
-    include:
-      - main
-
-pool:
-  vmImage: 'ubuntu-latest'
-
-variables:
-  buildConfiguration: 'Release'
-
 stages:
   - stage: BuildAndDeploy
     jobs:
       - job: BuildAndDeployJob
+        pool:
+          vmImage: 'ubuntu-latest'
+        variables:
+          buildConfiguration: 'Release'
         steps:
-
           - task: UseDotNet@2
             inputs:
               packageType: 'sdk'
@@ -51,7 +43,7 @@ stages:
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure'
             inputs:
-              azureSubscription: 'AzureServiceConnection'   # Change this to your actual connection name
+              azureSubscription: 'AzureServiceConnection'
               appType: 'webApp'
               appName: ${{ parameters.appName }}
               package: '$(Build.ArtifactStagingDirectory)/**/*.zip'

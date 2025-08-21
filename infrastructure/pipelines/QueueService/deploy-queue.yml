@@ -1,7 +1,15 @@
 name: Deploy-QueueService
 
-extends:
-  template: ../../templates/dotnet-deploy-template.yml
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - services/QueueService/**
+
+stages:
+- template: ../../templates/dotnet-deploy-template.yml
   parameters:
     appName: 'hqms-queue-api'
     projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
