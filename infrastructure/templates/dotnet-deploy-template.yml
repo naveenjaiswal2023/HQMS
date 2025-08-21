@@ -6,24 +6,32 @@ parameters:
 
 stages:
   - stage: BuildAndDeploy
+    displayName: 'Build and Deploy ${{ parameters.appName }}'
     jobs:
       - job: BuildAndDeployJob
+        displayName: 'Build & Deploy Job'
         pool:
           vmImage: 'ubuntu-latest'
+
         variables:
           buildConfiguration: 'Release'
+
         steps:
+          # Install .NET SDK
           - task: UseDotNet@2
+            displayName: 'Use .NET 8 SDK'
             inputs:
               packageType: 'sdk'
               version: '8.x'
 
+          # Restore packages
           - task: DotNetCoreCLI@2
             displayName: 'Restore Packages'
             inputs:
               command: 'restore'
               projects: ${{ parameters.projectPath }}
 
+          # Build project
           - task: DotNetCoreCLI@2
             displayName: 'Build Project'
             inputs:
@@ -31,6 +39,7 @@ stages:
               projects: ${{ parameters.projectPath }}
               arguments: '--configuration $(buildConfiguration)'
 
+          # Publish project
           - task: DotNetCoreCLI@2
             displayName: 'Publish Project'
             inputs:
@@ -40,10 +49,11 @@ stages:
               arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
               zipAfterPublish: true
 
+          # Deploy to Azure App Service
           - task: AzureWebApp@1
-            displayName: 'Deploy to Azure'
+            displayName: 'Deploy to Azure WebApp - ${{ parameters.appName }}'
             inputs:
-              azureSubscription: 'AzureServiceConnection'
+              azureSubscription: 'AzureServiceConnection'   # must match your service connection name in DevOps
               appType: 'webApp'
               appName: ${{ parameters.appName }}
               package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
