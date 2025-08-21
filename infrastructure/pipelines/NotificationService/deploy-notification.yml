@@ -8,7 +8,11 @@ stages:
     displayName: "Deploy Notification Service"
     jobs:
       - job: Deploy
-        displayName: "Build & Deploy Notification Service"
+        displayName: "Deploy Job"
+        pool:
+          vmImage: 'ubuntu-latest'
+        variables:
+          buildConfiguration: 'Release'
         steps:
           - template: ../../templates/dotnet-deploy-template.yml
             parameters:
