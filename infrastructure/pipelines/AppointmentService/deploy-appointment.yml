@@ -5,8 +5,10 @@ trigger:
 
 stages:
   - stage: DeployAppointment
+    displayName: "Deploy Appointment Service"
     jobs:
       - job: Deploy
+        displayName: "Deploy AppointmentService"
         steps:
           - template: ../../templates/dotnet-deploy-template.yml
             parameters:

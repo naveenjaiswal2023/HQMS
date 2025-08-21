@@ -5,8 +5,10 @@ trigger:
 
 stages:
   - stage: DeployNotification
+    displayName: "Deploy Notification Service"
     jobs:
       - job: Deploy
+        displayName: "Build & Deploy Notification Service"
         steps:
           - template: ../../templates/dotnet-deploy-template.yml
             parameters:
