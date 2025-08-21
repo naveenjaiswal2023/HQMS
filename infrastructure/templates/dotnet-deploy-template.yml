@@ -4,56 +4,44 @@ parameters:
   - name: projectPath
     type: string
 
-stages:
-  - stage: BuildAndDeploy
-    displayName: 'Build and Deploy ${{ parameters.appName }}'
-    jobs:
-      - job: BuildAndDeployJob
-        displayName: 'Build & Deploy Job'
-        pool:
-          vmImage: 'ubuntu-latest'
+steps:
+  # Install .NET SDK
+  - task: UseDotNet@2
+    displayName: 'Use .NET 8 SDK'
+    inputs:
+      packageType: 'sdk'
+      version: '8.x'
 
-        variables:
-          buildConfiguration: 'Release'
+  # Restore packages
+  - task: DotNetCoreCLI@2
+    displayName: 'Restore Packages'
+    inputs:
+      command: 'restore'
+      projects: ${{ parameters.projectPath }}
 
-        steps:
-          # Install .NET SDK
-          - task: UseDotNet@2
-            displayName: 'Use .NET 8 SDK'
-            inputs:
-              packageType: 'sdk'
-              version: '8.x'
+  # Build project
+  - task: DotNetCoreCLI@2
+    displayName: 'Build Project'
+    inputs:
+      command: 'build'
+      projects: ${{ parameters.projectPath }}
+      arguments: '--configuration $(buildConfiguration)'
 
-          # Restore packages
-          - task: DotNetCoreCLI@2
-            displayName: 'Restore Packages'
-            inputs:
-              command: 'restore'
-              projects: ${{ parameters.projectPath }}
+  # Publish project
+  - task: DotNetCoreCLI@2
+    displayName: 'Publish Project'
+    inputs:
+      command: 'publish'
+      publishWebProjects: false
+      projects: ${{ parameters.projectPath }}
+      arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+      zipAfterPublish: true
 
-          # Build project
-          - task: DotNetCoreCLI@2
-            displayName: 'Build Project'
-            inputs:
-              command: 'build'
-              projects: ${{ parameters.projectPath }}
-              arguments: '--configuration $(buildConfiguration)'
-
-          # Publish project
-          - task: DotNetCoreCLI@2
-            displayName: 'Publish Project'
-            inputs:
-              command: 'publish'
-              publishWebProjects: false
-              projects: ${{ parameters.projectPath }}
-              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-              zipAfterPublish: true
-
-          # Deploy to Azure App Service
-          - task: AzureWebApp@1
-            displayName: 'Deploy to Azure WebApp - ${{ parameters.appName }}'
-            inputs:
-              azureSubscription: 'AzureServiceConnection'   # must match your service connection name in DevOps
-              appType: 'webApp'
-              appName: ${{ parameters.appName }}
-              package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+  # Deploy to Azure App Service
+  - task: AzureWebApp@1
+    displayName: 'Deploy to Azure WebApp - ${{ parameters.appName }}'
+    inputs:
+      azureSubscription: 'AzureServiceConnection'   # must match your service connection name in DevOps
+      appType: 'webApp'
+      appName: ${{ parameters.appName }}
+      package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
