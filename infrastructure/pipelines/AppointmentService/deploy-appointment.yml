@@ -10,5 +10,5 @@ stages:
         steps:
           - template: ../../templates/dotnet-deploy-template.yml
             parameters:
-              appName: 'AppointmentServiceApp'
+              appName: 'hqms-appointment-api'
               projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'

@@ -10,5 +10,5 @@ stages:
         steps:
           - template: ../../templates/dotnet-deploy-template.yml
             parameters:
-              appName: 'NotificationServiceApp'
+              appName: 'hqms-notification-api'
               projectPath: 'services/NotificationService/NotificationService.API/NotificationService.API.csproj'
