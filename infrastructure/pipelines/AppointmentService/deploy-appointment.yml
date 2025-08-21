@@ -8,7 +8,7 @@ stages:
     jobs:
       - job: Deploy
         steps:
-          - template: ../templates/dotnet-deploy-template.yml
+          - template: ../../templates/dotnet-deploy-template.yml
             parameters:
               appName: 'AppointmentServiceApp'
               projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
