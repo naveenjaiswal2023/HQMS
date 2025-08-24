@@ -36,6 +36,15 @@ namespace AuthService.API.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Registers a new user based on the provided registration details.
+        /// </summary>
+        /// <remarks>This method processes the user registration asynchronously. The provided  <paramref
+        /// name="command"/> must include all required user details for successful registration.</remarks>
+        /// <param name="command">The user registration command containing the necessary details to create a new user. This parameter must not
+        /// be <see langword="null" />.</param>
+        /// <returns>An <see cref="IActionResult"/> containing the result of the registration operation. On success, returns an
+        /// HTTP 200 response with the newly created user's ID.</returns>
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterCommand command)
         {
@@ -43,6 +52,11 @@ namespace AuthService.API.Controllers
             return Ok(new { UserId = userId });
         }
 
+        /// <summary>
+        ///  
+        /// </summary>
+        /// <param name="command"></param>
+        /// <returns></returns>
         [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginCommand command)
@@ -51,6 +65,10 @@ namespace AuthService.API.Controllers
             return Ok(token);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
         [HttpPost("logout")]
         [Authorize]
         public async Task<IActionResult> Logout()
@@ -59,6 +77,10 @@ namespace AuthService.API.Controllers
             return Ok(new { Message = "Logged out successfully." });
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
         [HttpGet("me")]
         [Authorize]
         public IActionResult GetCurrentUser()
@@ -74,6 +96,12 @@ namespace AuthService.API.Controllers
             });
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="email"></param>
+        /// <param name="phoneNumber"></param>
+        /// <returns></returns>
         [HttpGet("check-user")]
         public async Task<IActionResult> CheckUserExists([FromQuery] string email, [FromQuery] string phoneNumber)
         {
@@ -81,6 +109,11 @@ namespace AuthService.API.Controllers
             return Ok(result);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="email"></param>
+        /// <returns></returns>
         [HttpPost("send-confirmation-email")]
         public async Task<IActionResult> SendEmailConfirmationLink([FromBody] string email)
         {
@@ -97,6 +130,12 @@ namespace AuthService.API.Controllers
             return Ok("Confirmation email sent.");
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
         [HttpGet("confirm-email")]
         public async Task<IActionResult> ConfirmEmail([FromQuery] string userId, [FromQuery] string token)
         {
@@ -109,6 +148,12 @@ namespace AuthService.API.Controllers
             return result.Succeeded ? Ok("Email confirmed successfully.") : BadRequest("Invalid token.");
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        
         [HttpPost("internal-token")]
         public IActionResult GetInternalToken([FromBody] ClientCredentialsRequest request)
         {

@@ -182,26 +182,6 @@ var app = builder.Build();
 // ✅ Middleware
 if (app.Environment.IsDevelopment())
 {
-    // 👇 Rewrites Swagger server path to support API Gateway (/auth/)
-    //app.UseSwagger(c =>
-    //{
-    //    c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
-    //    {
-    //        var pathBase = "/auth"; // 👈 match the prefix used in API Gateway
-    //        swaggerDoc.Servers = new List<OpenApiServer>
-    //        {
-    //            new OpenApiServer { Url = $"{httpReq.Scheme}://{httpReq.Host.Value}{pathBase}" }
-    //        };
-    //    });
-    //});
-
-    //app.UseSwaggerUI(c =>
-    //{
-    //    // 👇 Change the route prefix and endpoint path
-    //    c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service API V1");
-    //    c.RoutePrefix = "swagger"; // Swagger UI available at /swagger
-    //});
-
     app.UseSwagger();
 
     app.UseSwaggerUI(c =>
