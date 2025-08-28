@@ -14,16 +14,15 @@ namespace AuthService.Domain.Common
         public string? UpdatedBy { get; set; }
         public DateTime? DeletedAt { get; set; }
         public string? DeletedBy { get; set; }
-
         public bool IsDeleted { get; set; }
 
         [Timestamp]
         public byte[] RowVersion { get; set; } = default!;
 
-        // 🔁 Domain events
+        // ✅ Proper domain event support
         private readonly List<IDomainEvent> _domainEvents = new();
 
-        [NotMapped]
+        [NotMapped] // EF should not persist this list
         public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
         public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);

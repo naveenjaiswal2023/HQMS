@@ -2,7 +2,7 @@
 using AuthService.Application.Interfaces;
 using AuthService.Domain.Interfaces;
 using AuthService.Infrastructure.Events;
-using AuthService.Infrastructure.Messaging;
+//using AuthService.Infrastructure.Messaging;
 using AuthService.Infrastructure.Persistence;
 using AuthService.Infrastructure.Services;
 using Azure.Messaging.ServiceBus;
@@ -25,10 +25,27 @@ namespace AuthService.Infrastructure
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
             // ✅ Azure Service Bus
+            //services.AddSingleton<ServiceBusClient>(sp =>
+            //{
+            //    var connectionString = configuration["ServiceBus:ConnectionString"]
+            //        ?? configuration.GetConnectionString("ServiceBus");
+
+            //    if (string.IsNullOrWhiteSpace(connectionString))
+            //        throw new InvalidOperationException("Azure Service Bus connection string is not configured.");
+
+            //    return new ServiceBusClient(connectionString);
+            //});
+
             services.AddSingleton<ServiceBusClient>(sp =>
             {
-                var connectionString = configuration["ServiceBus:ConnectionString"]
-                    ?? configuration.GetConnectionString("ServiceBus");
+                // 1️⃣ Try to get from environment variable first
+                var connectionString = Environment.GetEnvironmentVariable("QueueServiceBusConnectionString");
+
+                // 2️⃣ Fallback to configuration if not found
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    connectionString = configuration.GetConnectionString("ServiceBus");
+                }
 
                 if (string.IsNullOrWhiteSpace(connectionString))
                     throw new InvalidOperationException("Azure Service Bus connection string is not configured.");
@@ -36,7 +53,8 @@ namespace AuthService.Infrastructure
                 return new ServiceBusClient(connectionString);
             });
 
-            services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
+
+            //services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
 
             // ✅ Caching
             services.AddMemoryCache();

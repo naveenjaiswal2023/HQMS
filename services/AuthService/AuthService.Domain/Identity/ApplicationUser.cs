@@ -1,6 +1,7 @@
-﻿using AuthService.Domain.Common;
-using AuthService.Domain.Interfaces;
+﻿using AuthService.Domain.Interfaces;
 using Microsoft.AspNetCore.Identity;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -8,12 +9,14 @@ namespace AuthService.Domain.Identity
 {
     public class ApplicationUser : IdentityUser, IBaseEntity
     {
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string Gender { get; set; }
+        // 👤 Domain-specific fields
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Gender { get; set; } = string.Empty;
         public DateTime DateOfBirth { get; set; }
         public bool IsActive { get; set; } = true;
 
+        // 🕒 Audit fields (from IBaseEntity)
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public string? CreatedBy { get; set; }
@@ -21,16 +24,26 @@ namespace AuthService.Domain.Identity
         public bool IsDeleted { get; set; }
 
         [Timestamp]
-        public byte[] RowVersion { get; set; } = default!;
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
-        // ✅ Use IDomainEvent instead of BaseDomainEvent
+        // 📌 Domain Events
         private readonly List<IDomainEvent> _domainEvents = new();
 
-        [NotMapped]
+        [NotMapped] // EF should NOT persist this list
         public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
-        public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
-        public void RemoveDomainEvent(IDomainEvent domainEvent) => _domainEvents.Remove(domainEvent);
+        public void AddDomainEvent(IDomainEvent domainEvent)
+        {
+            if (domainEvent == null) throw new ArgumentNullException(nameof(domainEvent));
+            _domainEvents.Add(domainEvent);
+        }
+
+        public void RemoveDomainEvent(IDomainEvent domainEvent)
+        {
+            if (domainEvent == null) return;
+            _domainEvents.Remove(domainEvent);
+        }
+
         public void ClearDomainEvents() => _domainEvents.Clear();
     }
 }

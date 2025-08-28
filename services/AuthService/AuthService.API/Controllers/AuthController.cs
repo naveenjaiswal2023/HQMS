@@ -48,8 +48,12 @@ namespace AuthService.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterCommand command)
         {
-            var userId = await _mediator.Send(command);
-            return Ok(new { UserId = userId });
+            var result = await _mediator.Send(command);
+
+            if (result.Succeeded)
+                return Ok(new { UserId = result.Data });
+            else
+                return BadRequest(result.Errors);
         }
 
         /// <summary>

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AuthService.Domain.Events
 {
-    public class UserLoggedInEvent : INotification, IDomainEvent
+    public class UserLoggedInEvent : BaseDomainEvent, IDomainEvent
     {
         public Guid UserId { get; }
         public string Username { get; }

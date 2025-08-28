@@ -62,6 +62,13 @@ public class DomainEventPublisher : IDomainEventPublisher
 
         try
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Publishing cancelled for event: {EventType}", typeof(T).Name);
+                return;
+            }
+            _logger.LogDebug("📢 Publishing {EventType} to topic {TopicName}", eventType, _sender.EntityPath);
+
             await _sender.SendMessageAsync(message, cancellationToken);
             _logger.LogInformation("✅ Published {EventType} to topic {TopicName}", eventType, _sender.EntityPath);
         }
@@ -74,6 +81,13 @@ public class DomainEventPublisher : IDomainEventPublisher
         // Local MediatR publish
         try
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Dispatching cancelled for event: {EventType}", typeof(T).Name);
+                return;
+            }
+            _logger.LogDebug("📢 Dispatching MediatR event: {EventType}", eventType);
+
             await _mediator.Publish(@event, cancellationToken);
             _logger.LogDebug("📢 MediatR dispatched {EventType}", eventType);
         }

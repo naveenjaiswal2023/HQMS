@@ -10,7 +10,7 @@ using QueueService.Application.Handlers.Commands;
 using QueueService.Application.Services;
 using QueueService.Domain.Interfaces;
 //using QueueService.Infrastructure.Events;
-using QueueService.Infrastructure.Messaging;
+//using QueueService.Infrastructure.Messaging;
 using QueueService.Infrastructure.Persistence;
 using QueueService.Infrastructure.Repositories;
 using QueueService.Infrastructure.Services;
@@ -53,7 +53,7 @@ namespace QueueService.Infrastructure
             });
 
             // ✅ Azure Service Bus Publisher
-            services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
+            //services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
 
             // ✅ Domain Event Publisher (both MediatR + Azure Service Bus)
             services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();

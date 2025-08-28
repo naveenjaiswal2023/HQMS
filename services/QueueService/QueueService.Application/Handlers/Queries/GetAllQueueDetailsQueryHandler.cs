@@ -23,6 +23,7 @@ namespace QueueService.Application.Handlers.Queries
             GetAllQueueDetailsQuery request,
             CancellationToken cancellationToken)
         {
+
             // Get filtered queue details from the service
             var allItems = await _queueQueryService.GetAllQueueDetailsAsync(
             request.HospitalId,
