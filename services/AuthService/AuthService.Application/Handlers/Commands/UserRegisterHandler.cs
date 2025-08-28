@@ -5,7 +5,6 @@ using AuthService.Domain.Identity;
 using AuthService.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
-using System.Data;
 using System.Web;
 
 namespace AuthService.Application.Handlers.Commands
@@ -54,22 +53,25 @@ namespace AuthService.Application.Handlers.Commands
 
             await _userManager.AddToRoleAsync(user, request.Role);
 
-            // Generate token for confirmation (optional in handler)
+            // Generate token for confirmation
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = HttpUtility.UrlEncode(token);
             var confirmUrl = $"https://your-client.com/confirm-email?userId={user.Id}&token={encodedToken}";
 
-            // ✅ Raise domain event (email can be sent in handler)
+            // ✅ Attach the user entity to UnitOfWork so events are tracked
+            //_unitOfWork.AttachEntity(user);
+
+            // ✅ Add domain event (now _unitOfWork.SaveAsync will catch it)
             user.AddDomainEvent(new UserRegisteredEvent(
                 Guid.Parse(user.Id),
-                user.Email,
-                user.UserName,
+                user.Email!,
+                user.UserName!,
                 request.Role,
                 confirmUrl,
                 DateTime.UtcNow
             ));
 
-            // ✅ Triggers domain event dispatch via DbContext
+            // ✅ This will now dispatch domain events
             await _unitOfWork.SaveAsync(cancellationToken);
 
             return Result<string>.Success("User registered. Please confirm your email.");

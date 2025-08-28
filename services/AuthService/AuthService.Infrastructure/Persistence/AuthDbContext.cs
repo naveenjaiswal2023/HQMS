@@ -78,6 +78,14 @@ namespace AuthService.Infrastructure.Persistence
                     entry.Entity.UpdatedAt = DateTime.UtcNow;
                     entry.Entity.UpdatedBy = user;
                 }
+                else if (entry.State == EntityState.Deleted && entry.Entity is BaseEntity auditableEntity)
+                {
+                    // Soft delete
+                    entry.State = EntityState.Modified;
+                    auditableEntity.IsDeleted = true;
+                    auditableEntity.DeletedAt = DateTime.UtcNow;
+                    auditableEntity.DeletedBy = user;
+                }
             }
         }
     }

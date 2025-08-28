@@ -1,4 +1,4 @@
-﻿using AuthService.Domain.Interfaces; // Correct IUnitOfWork location
+﻿using AuthService.Domain.Interfaces;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +15,10 @@ namespace AuthService.Infrastructure.Persistence
         }
 
         public async Task<int> SaveAsync(CancellationToken cancellationToken = default)
-            => await _context.SaveChangesAsync(cancellationToken);
+        {
+            // ✅ Let AuthDbContext handle auditing + domain events
+            return await _context.SaveChangesAsync(cancellationToken);
+        }
 
         public void Dispose() => _context.Dispose();
     }

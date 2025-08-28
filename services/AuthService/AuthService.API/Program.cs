@@ -1,14 +1,11 @@
 ﻿using AuthService.API.Middleware;
 using AuthService.Application;
-using AuthService.Application.Commands;
 using AuthService.Domain.Identity;
-using AuthService.Domain.Interfaces;
 using AuthService.Infrastructure;
 using AuthService.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -16,11 +13,12 @@ using SharedInfrastructure.Settings;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-// Add Serilog
-builder.Host.UseSerilog((context, configuration) =>
-    configuration.ReadFrom.Configuration(context.Configuration));
 
-// ✅ Load configuration
+// 🔹 Logging
+builder.Host.UseSerilog((ctx, config) =>
+    config.ReadFrom.Configuration(ctx.Configuration));
+
+// 🔹 Configuration
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -30,115 +28,91 @@ builder.Configuration
 var configuration = builder.Configuration;
 var environment = builder.Environment;
 
-// ✅ Build DB connection
-var connTemplate = configuration.GetConnectionString("AuthDbConnectionString")
-    ?? Environment.GetEnvironmentVariable("AuthDbConnectionString");
+// 🔹 Database Connection
+var connectionString = configuration.GetConnectionString("AuthDbConnectionString")
+    ?? Environment.GetEnvironmentVariable("AuthDbConnectionString")
+    ?? throw new InvalidOperationException("AuthDbConnectionString is missing.");
 
-var dbPassword = configuration["QmsDbPassword"]
-    ?? Environment.GetEnvironmentVariable("QmsDbPassword");
+Log.Information("[{Env}] Connection string available: {HasConn}", environment.EnvironmentName, !string.IsNullOrWhiteSpace(connectionString));
 
-if (string.IsNullOrEmpty(connTemplate))
-    throw new InvalidOperationException("AuthDbConnectionString is missing.");
-
-if (string.IsNullOrEmpty(dbPassword))
-    throw new InvalidOperationException("QmsDbPassword is missing.");
-
-var actualConnectionString = connTemplate.Replace("_QmsDbPassword_", dbPassword);
-Console.WriteLine($"[ENV: {environment.EnvironmentName}] Connection String SET: {(!string.IsNullOrWhiteSpace(actualConnectionString)).ToString()}");
-
-// ✅ Register DbContext
 builder.Services.AddDbContext<AuthDbContext>(options =>
-{
-    options.UseSqlServer(actualConnectionString, sqlOptions =>
-    {
-        sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(30), null);
-    });
-});
+    options.UseSqlServer(connectionString, sqlOptions =>
+        sqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(30), null)));
 
-// ✅ Identity Setup
+// 🔹 Identity
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.Password.RequiredLength = 6;
     options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = false;
-    options.Password.RequireUppercase = false;
     options.Password.RequireNonAlphanumeric = false;
     options.User.RequireUniqueEmail = true;
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.AllowedForNewUsers = true;
 })
 .AddEntityFrameworkStores<AuthDbContext>()
 .AddDefaultTokenProviders();
 
-// ✅ JWT Setup
-var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>();
-if (jwtSettings == null || string.IsNullOrEmpty(jwtSettings.Key))
-    throw new InvalidOperationException("JWT settings are missing or invalid.");
+// 🔹 JWT
+var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
+    ?? throw new InvalidOperationException("JwtSettings section missing.");
 
 builder.Services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    var key = Encoding.UTF8.GetBytes(jwtSettings.Key);
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings.Issuer,
-        ValidAudience = jwtSettings.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
-        ClockSkew = TimeSpan.Zero
-    };
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key));
 
-    options.Events = new JwtBearerEvents
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        OnMessageReceived = context =>
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
-            {
-                context.Token = accessToken;
-            }
-            return Task.CompletedTask;
-        },
-        OnAuthenticationFailed = context =>
-        {
-            if (environment.IsDevelopment())
-            {
-                Console.WriteLine($"JWT Auth failed: {context.Exception.Message}");
-            }
-            return Task.CompletedTask;
-        }
-    };
-});
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = key,
+            ClockSkew = TimeSpan.Zero
+        };
 
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var accessToken = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) && ctx.HttpContext.Request.Path.StartsWithSegments("/notificationHub"))
+                {
+                    ctx.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = ctx =>
+            {
+                if (environment.IsDevelopment())
+                    Log.Warning("JWT authentication failed: {Message}", ctx.Exception.Message);
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+// 🔹 DI
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(configuration);
-
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
+// 🔹 CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:60424") // ✅ Your React frontend domain
+        policy.WithOrigins(configuration["AllowedFrontend"] ?? "http://localhost:60424")
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
 });
 
-
-// ✅ Swagger Setup
+// 🔹 Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -151,71 +125,52 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer' followed by your token."
+        Description = "Enter 'Bearer {token}'"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
+        { new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }, Array.Empty<string>() }
     });
-    // 👇 Add server URL to Swagger for API Gateway compatibility
-    c.AddServer(new OpenApiServer
-    {
-        Url = "https://localhost:7260/auth" // Match your YARP route
-    });
+
+    c.AddServer(new OpenApiServer { Url = "https://localhost:7260/auth" }); // for Gateway compatibility
 });
 
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// ✅ Middleware
+// 🔹 Middleware
 if (app.Environment.IsDevelopment())
 {
-    // 👇 Rewrites Swagger server path to support API Gateway (/auth/)
-    //app.UseSwagger(c =>
-    //{
-    //    c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
-    //    {
-    //        var pathBase = "/auth"; // 👈 match the prefix used in API Gateway
-    //        swaggerDoc.Servers = new List<OpenApiServer>
-    //        {
-    //            new OpenApiServer { Url = $"{httpReq.Scheme}://{httpReq.Host.Value}{pathBase}" }
-    //        };
-    //    });
-    //});
-
-    //app.UseSwaggerUI(c =>
-    //{
-    //    // 👇 Change the route prefix and endpoint path
-    //    c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service API V1");
-    //    c.RoutePrefix = "swagger"; // Swagger UI available at /swagger
-    //});
-
     app.UseSwagger();
-
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service API V1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Auth Service API V1");
         c.RoutePrefix = "swagger";
     });
 
-    // ✅ Seed roles and admin user
-    using (var scope = app.Services.CreateScope())
+    await SeedData.EnsureSeedDataAsync(app);
+}
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseCors("FrontendPolicy");
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+app.Run();
+
+
+// 🔹 Seed Data Helper
+static class SeedData
+{
+    public static async Task EnsureSeedDataAsync(WebApplication app)
     {
-        var services = scope.ServiceProvider;
-        var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
-        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        using var scope = app.Services.CreateScope();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
         string[] roles = ["Admin", "Doctor", "Patient", "POD"];
         foreach (var role in roles)
@@ -241,35 +196,12 @@ if (app.Environment.IsDevelopment())
                 IsActive = true
             };
 
-            var result = await userManager.CreateAsync(adminUser, "Admin@123"); // Secure password
+            var result = await userManager.CreateAsync(adminUser, "Admin@123");
             if (result.Succeeded)
-            {
                 await userManager.AddToRoleAsync(adminUser, "Admin");
-            }
             else
-            {
                 foreach (var error in result.Errors)
-                    Console.WriteLine($"Error creating user: {error.Description}");
-            }
+                    Log.Error("Error creating admin user: {Error}", error.Description);
         }
     }
 }
-app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-app.UseHttpsRedirection();
-
-// ❗ Required before CORS
-app.UseRouting();
-
-// ✅ CORS must come after routing
-app.UseCors("FrontendPolicy");
-
-// ✅ Auth middleware
-app.UseAuthentication();
-app.UseAuthorization();
-
-// ✅ Map endpoints
-app.MapControllers();
-
-app.Run();
-

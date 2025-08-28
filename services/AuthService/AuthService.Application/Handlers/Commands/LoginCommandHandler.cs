@@ -44,8 +44,19 @@ namespace AuthService.Application.Handlers.Commands
 
             var token = await _authService.GenerateJwtTokenAsync(user);
 
+            // ✅ Add domain event
+            user.AddDomainEvent(
+                new UserLoggedInEvent(Guid.Parse(user.Id), user.UserName ?? request.Username, DateTime.UtcNow)
+            );
+
+
+            // ✅ Attach entity so EF starts tracking & SaveChanges will trigger event publishing
+            _context.Attach(user);
+
+            await _context.SaveChangesAsync(cancellationToken);
 
             return Result<TokenDto>.Success(token);
         }
+
     }
 }
