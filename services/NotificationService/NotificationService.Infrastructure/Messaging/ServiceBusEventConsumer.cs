@@ -22,10 +22,10 @@ namespace NotificationService.Infrastructure.Messaging
         private readonly int _maxDeliveryCountBeforeDLQ;
         private readonly bool _deadLetterOnDeserializationFailure;
 
-        private static readonly JsonSerializerOptions SerializerOptions = new()
-        {
-            PropertyNameCaseInsensitive = true
-        };
+        //private static readonly JsonSerializerOptions SerializerOptions = new()
+        //{
+        //    PropertyNameCaseInsensitive = true
+        //};
 
         public ServiceBusEventConsumer(
             ServiceBusClient client,
@@ -118,7 +118,13 @@ namespace NotificationService.Infrastructure.Messaging
                 TEvent? @event;
                 try
                 {
-                    @event = args.Message.Body.ToObjectFromJson<TEvent>(SerializerOptions);
+                    var rawBody = args.Message.Body.ToString();
+
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    @event = args.Message.Body.ToObjectFromJson<TEvent>(options);
                 }
                 catch (Exception ex)
                 {
