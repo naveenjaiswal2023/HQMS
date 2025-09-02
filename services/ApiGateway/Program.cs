@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
-using Yarp.ReverseProxy.Transforms;
 using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Transforms;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,7 +21,8 @@ builder.Host.UseSerilog();
 
 // ---------- JWT Authentication ----------
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
-var signingKey = jwtSection.GetValue<string>("Key") ?? throw new InvalidOperationException("JwtSettings:Key required");
+var signingKey = jwtSection.GetValue<string>("Key")
+                 ?? throw new InvalidOperationException("JwtSettings:Key required");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -75,9 +76,9 @@ builder.Services.AddRateLimiter(options =>
 // ---------- YARP Reverse Proxy ----------
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    .AddTransforms(transformContext =>
+    .AddTransforms(transformBuilder =>
     {
-        transformContext.AddRequestTransform(async transform =>
+        transformBuilder.AddRequestTransform(async transform =>
         {
             var httpContext = transform.HttpContext;
 
@@ -137,18 +138,6 @@ app.UseHttpsRedirection();
 app.UseRouting();
 app.UseRateLimiter();
 
-// Skip auth for Swagger UI and swagger.json requests
-app.Use(async (context, next) =>
-{
-    var path = context.Request.Path.Value?.ToLower() ?? "";
-    if (path.StartsWith("/swagger") || path.EndsWith("swagger.json"))
-    {
-        await next();
-        return;
-    }
-    await next();
-});
-
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -158,9 +147,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
+        // ✅ Add ALL services here
         c.SwaggerEndpoint("/auth/swagger/v1/swagger.json", "Auth Service");
         c.SwaggerEndpoint("/appointments/swagger/v1/swagger.json", "Appointment Service");
         c.SwaggerEndpoint("/queue/swagger/v1/swagger.json", "Queue Service");
+        c.SwaggerEndpoint("/patients/swagger/v1/swagger.json", "Patient Service");
+        c.SwaggerEndpoint("/payments/swagger/v1/swagger.json", "Payment Service");
         c.RoutePrefix = "swagger";
     });
 }

@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using PatientService.Application.Common.Models;
 using PatientService.Domain.Enums;
 using System;
 using System.Collections.Generic;

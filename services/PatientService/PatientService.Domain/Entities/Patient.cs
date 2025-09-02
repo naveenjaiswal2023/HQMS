@@ -1,5 +1,7 @@
 ﻿using PatientService.Domain.Common;
 using PatientService.Domain.Enums;
+using PatientService.Domain.Events;
+using Stripe;
 using System;
 
 namespace PatientService.Domain.Entities
@@ -47,7 +49,7 @@ namespace PatientService.Domain.Entities
         // 🔹 Payment reference (optional)
         public string? RegistrationPaymentId { get; private set; }
 
-        protected Patient() { }
+        protected Patient() {}
 
         public Patient(string firstName, string lastName, DateTime dateOfBirth,
                        string gender, string phoneNumber)
@@ -62,6 +64,14 @@ namespace PatientService.Domain.Entities
             RegistrationStatus = PatientRegistrationStatus.PendingPayment;
             UHID = GeneratePatientNumber();
             CreatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new PatientRegisteredEvent(
+                this.Id,
+                this.UHID,
+                $"{this.FirstName} {this.LastName}",
+                this.PhoneNumber,
+                DateTime.UtcNow
+            ));
         }
 
         // 🔹 Payment handling
@@ -82,18 +92,24 @@ namespace PatientService.Domain.Entities
             RegistrationStatus = PatientRegistrationStatus.Active;
             ActivatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new PatientActivatedEvent(Id, UHID));
         }
 
-        public void MarkPaymentFailed()
+        public void MarkPaymentFailed(string failureReason)
         {
             RegistrationStatus = PatientRegistrationStatus.PaymentFailed;
             UpdatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new PatientPaymentFailedEvent(Id, UHID, failureReason));
         }
 
         public void MarkPaymentCompleted()
         {
             RegistrationStatus = PatientRegistrationStatus.Completed;
             UpdatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new PatientPaymentCompletedEvent(Id, UHID, RegistrationPaymentId!));
         }
 
         private string GeneratePatientNumber()

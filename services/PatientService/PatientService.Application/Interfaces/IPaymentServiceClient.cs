@@ -1,4 +1,5 @@
-﻿using PatientService.Application.Commands;
+﻿using PatientService.Application.Common;
+using PatientService.Application.Common.Models;
 using Stripe;
 using System;
 using System.Collections.Generic;

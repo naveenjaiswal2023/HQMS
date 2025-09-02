@@ -1,5 +1,7 @@
 ﻿using PaymentService.Domain.Common;
 using PaymentService.Domain.Enums;
+using PaymentService.Domain.Events;
+using Stripe;
 using System;
 
 namespace PaymentService.Domain.Entities
@@ -13,32 +15,38 @@ namespace PaymentService.Domain.Entities
         public Guid PatientId { get; private set; }
         public decimal Amount { get; private set; }
         public string Currency { get; private set; }
-        public PaymentMethod PaymentMethod { get; private set; }
+
+        // ⚠️ Avoid ambiguity with Stripe.PaymentMethod
+        public PaymentService.Domain.Enums.PaymentMethod PaymentMethod { get; private set; }
+
         public PaymentStatus Status { get; private set; }
 
         // 🔹 Gateway / Transaction Details
-        public string? PaymentGatewayTransactionId { get; private set; } // ID from Razorpay/Stripe etc.
+        public string? PaymentGatewayTransactionId { get; private set; }
         public string? PaymentGatewayResponse { get; private set; }
         public string? FailureReason { get; private set; }
         public DateTime? ProcessedAt { get; private set; }
 
         // 🔹 Hospital / Fee Info
-        public string RegistrationFeeType { get; private set; }  // e.g., "Consultation", "Admission"
-        public string? Department { get; private set; }          // Which department (OPD, IPD, Diagnostics)
-        public string? DoctorId { get; private set; }            // Optional, if payment is doctor-specific
-        public string? InvoiceNumber { get; private set; }       // For finance reconciliation
-        public string? ReceiptNumber { get; private set; }       // For patient receipt tracking
+        public string RegistrationFeeType { get; private set; }
+        public string? Department { get; private set; }
+        public string? DoctorId { get; private set; }
+        public string? InvoiceNumber { get; private set; }
+        public string? ReceiptNumber { get; private set; }
 
         // 🔹 Audit
-        public string? PayerName { get; private set; }           // Name of the payer (patient/relative)
+        public string? PayerName { get; private set; }
         public string? PayerEmail { get; private set; }
         public string? PayerPhone { get; private set; }
 
         protected Payment() { } // For EF Core
 
         public Payment(Guid patientId, decimal amount, string currency,
-                      PaymentMethod paymentMethod, string registrationFeeType,
-                      string? payerName, string? payerPhone, string? payerEmail)
+                      PaymentService.Domain.Enums.PaymentMethod paymentMethod,
+                      string registrationFeeType,
+                      string? payerName,
+                      string? payerPhone,
+                      string? payerEmail)
         {
             Id = Guid.NewGuid();
             TransactionId = GenerateTransactionId();
@@ -47,7 +55,7 @@ namespace PaymentService.Domain.Entities
             Currency = currency ?? throw new ArgumentNullException(nameof(currency));
             PaymentMethod = paymentMethod;
             Status = PaymentStatus.Pending;
-            RegistrationFeeType = registrationFeeType;
+            RegistrationFeeType = registrationFeeType ?? throw new ArgumentNullException(nameof(registrationFeeType));
 
             PayerName = payerName;
             PayerPhone = payerPhone;
@@ -62,23 +70,43 @@ namespace PaymentService.Domain.Entities
             UpdatedAt = DateTime.UtcNow;
         }
 
-        public void MarkAsSuccess(string gatewayResponse, string? gatewayTransactionId = null, string? receiptNumber = null, string? invoiceNumber = null)
+        public void MarkAsSuccess(
+            string gatewayResponse,
+            string? gatewayTransactionId = null,
+            string? receiptNumber = null,
+            string? invoiceNumber = null)
         {
             Status = PaymentStatus.Success;
-            PaymentGatewayResponse = gatewayResponse;
-            PaymentGatewayTransactionId = gatewayTransactionId;
+            PaymentGatewayResponse = gatewayResponse ?? throw new ArgumentNullException(nameof(gatewayResponse));
+            PaymentGatewayTransactionId = gatewayTransactionId ?? Guid.NewGuid().ToString();
             ReceiptNumber = receiptNumber ?? GenerateReceiptNumber();
             InvoiceNumber = invoiceNumber ?? GenerateInvoiceNumber();
             ProcessedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new PaymentCompletedEvent(
+                Id,
+                PatientId,
+                Amount,
+                Currency,
+                PaymentGatewayTransactionId,
+                ReceiptNumber,
+                InvoiceNumber));
         }
 
         public void MarkAsFailed(string failureReason)
         {
             Status = PaymentStatus.Failed;
-            FailureReason = failureReason;
+            FailureReason = failureReason ?? throw new ArgumentNullException(nameof(failureReason));
             ProcessedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
+
+            AddDomainEvent(new PaymentFailedEvent(
+                Id,
+                PatientId,
+                Amount,
+                Currency,
+                failureReason));
         }
 
         private string GenerateTransactionId()

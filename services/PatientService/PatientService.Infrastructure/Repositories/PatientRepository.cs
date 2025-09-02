@@ -5,7 +5,7 @@ using PatientService.Infrastructure.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PatientService.Infrastructure.Repositories
@@ -32,22 +32,21 @@ namespace PatientService.Infrastructure.Repositories
         public async Task AddAsync(Patient entity, CancellationToken cancellationToken = default)
         {
             await _context.Patients.AddAsync(entity, cancellationToken);
-            await _context.SaveChangesAsync(cancellationToken);
+            
         }
 
         public async Task UpdateAsync(Patient entity, CancellationToken cancellationToken = default)
         {
             _context.Patients.Update(entity);
-            await _context.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task DeleteAsync(Patient entity, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(Patient entity, CancellationToken cancellationToken = default)
         {
             _context.Patients.Remove(entity);
-            await _context.SaveChangesAsync(cancellationToken);
+            return Task.CompletedTask;
         }
 
-        public async Task<Patient> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+        public async Task<Patient?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             return await _context.Patients.FirstOrDefaultAsync(p => p.Email == email, cancellationToken);
         }
@@ -55,15 +54,16 @@ namespace PatientService.Infrastructure.Repositories
         public async Task<IEnumerable<Patient>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
         {
             return await _context.Patients
-                .Where(p => p.FirstName.Contains(searchTerm) || p.LastName.Contains(searchTerm) || p.Email.Contains(searchTerm))
+                .Where(p => p.FirstName.Contains(searchTerm) ||
+                            p.LastName.Contains(searchTerm) ||
+                            p.Email.Contains(searchTerm))
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<Patient?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken)
+        public async Task<Patient?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default)
         {
             return await _context.Patients
                 .FirstOrDefaultAsync(p => p.PhoneNumber == phoneNumber, cancellationToken);
         }
-
     }
 }

@@ -1,5 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using PatientService.Application.Commands;
+using PatientService.Application.Common;
+using PatientService.Application.Common.Models;
 using PatientService.Application.Interfaces;
 using PatientService.Domain.Enums;
 using PatientService.Domain.Interfaces;
