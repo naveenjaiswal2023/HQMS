@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using QueueService.API.Controllers;
 using QueueService.Application.Commands;
+using QueueService.Application.Common.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -96,8 +97,9 @@ namespace QueueService.Tests.Integration
         {
             var id = Guid.NewGuid();
             _mediatorMock
-                .Setup(m => m.Send(It.IsAny<CancelQueueItemCommand>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Guid.Empty);
+            .Setup(m => m.Send(It.IsAny<CancelQueueItemCommand>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.FromResult(Result<Guid>.Success(Guid.NewGuid())));
+
 
             var result = await _controller.Cancel(id, CancellationToken.None);
 

@@ -1,14 +1,16 @@
 ﻿using MediatR;
+using QueueService.Application.Common.Models;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace QueueService.Application.Commands
 {
-    public class CancelQueueItemCommand : IRequest<Guid>
+    public class CancelQueueItemCommand : IRequest<Result<Guid>>
     {
         public Guid QueueItemId { get; set; }
+
+        public CancelQueueItemCommand(Guid queueItemId)
+        {
+            QueueItemId = queueItemId;
+        }
     }
 }

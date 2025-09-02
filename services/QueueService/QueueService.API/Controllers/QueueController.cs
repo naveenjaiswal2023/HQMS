@@ -98,7 +98,8 @@ namespace QueueService.API.Controllers
         {
             try
             {
-                var command = new CancelQueueItemCommand { QueueItemId = id };
+                var command = new CancelQueueItemCommand(id);
+
                 await _mediator.Send(command, cancellationToken);
                 return NoContent();
             }

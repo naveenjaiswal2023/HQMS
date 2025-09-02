@@ -127,6 +127,7 @@ builder.Services.AddSwaggerGen(options =>
         Title = "Appointment Service API",
         Version = "v1"
     });
+    options.AddServer(new OpenApiServer { Url = "/appointments" });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -152,10 +153,10 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
     // ✅ Tell Swagger to use the Gateway base path
-    options.AddServer(new OpenApiServer
-    {
-        Url = "https://localhost:7260/appointments"
-    });
+    //options.AddServer(new OpenApiServer
+    //{
+    //    Url = "https://localhost:7260/appointments"
+    //});
 });
 
 // ✅ Controllers
