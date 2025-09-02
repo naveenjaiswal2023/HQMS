@@ -93,7 +93,7 @@ builder.Services.AddSwaggerGen(options =>
         Title = "Queue Service API",
         Version = "v1"
     });
-
+    options.AddServer(new OpenApiServer { Url = "/queue" });
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using Bearer scheme. Example: 'Bearer {token}'",
@@ -114,7 +114,7 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 
-    options.AddServer(new OpenApiServer { Url = "https://localhost:7260/queue" });
+    //options.AddServer(new OpenApiServer { Url = "https://localhost:7260/queue" });
 });
 
 // ------------------- Controllers -------------------

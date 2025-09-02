@@ -38,21 +38,24 @@ namespace PatientService.API.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
         [HttpPost("{patientId}/complete-registration")]
         public async Task<IActionResult> CompleteRegistration(Guid patientId, CancellationToken cancellationToken)
         {
             var command = new CompletePatientRegistrationCommand(patientId);
 
-            if (command == null)
-                return BadRequest("Invalid request payload.");
-
             try
             {
                 var result = await _mediator.Send(command, cancellationToken);
-                if (result)
-                    return Ok(new { success = true });
-                else
-                    return StatusCode(500, new { success = false, message = "Failed to complete registration." });
+
+                if (!result.Succeeded)
+                {
+                    var errorMessage = result.Errors?.FirstOrDefault() ?? "Failed to complete registration.";
+                    return StatusCode(500, new { success = false, message = errorMessage });
+
+                }
+
+                return Ok(new { success = true, data = result.Data });
             }
             catch (PatientService.Application.Exceptions.NotFoundException ex)
             {

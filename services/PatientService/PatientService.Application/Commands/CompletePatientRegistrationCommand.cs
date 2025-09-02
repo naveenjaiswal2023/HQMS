@@ -1,11 +1,19 @@
 ﻿using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using PatientService.Application.Common.Models; // Assuming Result<T> lives here
 
 namespace PatientService.Application.Commands
 {
-    public record CompletePatientRegistrationCommand(Guid PatientId) : IRequest<bool>;
+    public class CompletePatientRegistrationCommand : IRequest<Result<bool>>
+    {
+        public Guid PatientId { get; set; }
+
+        // Parameterless constructor (needed for model binding / serialization)
+        public CompletePatientRegistrationCommand() { }
+
+        // Full constructor
+        public CompletePatientRegistrationCommand(Guid patientId)
+        {
+            PatientId = patientId;
+        }
+    }
 }

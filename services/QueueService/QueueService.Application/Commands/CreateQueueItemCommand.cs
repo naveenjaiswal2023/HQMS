@@ -1,9 +1,6 @@
 ﻿using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using QueueService.Application.Common;
+using QueueService.Application.Common.Models;
 
 namespace QueueService.Application.Commands
 {
@@ -14,7 +11,6 @@ namespace QueueService.Application.Commands
         public Guid AppointmentId { get; set; }
         public Guid DepartmentId { get; set; }
         public Guid HospitalId { get; set; }
-        //public string QueueNumber { get; set; }
 
         public CreateQueueItemCommand(
             Guid doctorId,
@@ -22,15 +18,13 @@ namespace QueueService.Application.Commands
             Guid appointmentId,
             Guid departmentId,
             Guid hospitalId
-            //string queueNumber
-            )
+        )
         {
             DoctorId = doctorId;
             PatientId = patientId;
             AppointmentId = appointmentId;
             DepartmentId = departmentId;
             HospitalId = hospitalId;
-            //QueueNumber = queueNumber;
         }
     }
 }

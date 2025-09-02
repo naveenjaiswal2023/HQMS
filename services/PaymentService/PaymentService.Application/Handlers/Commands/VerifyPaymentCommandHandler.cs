@@ -1,18 +1,18 @@
 ﻿using MediatR;
 using PaymentService.Application.Commands;
+using PaymentService.Application.Common.Models;
 using PaymentService.Application.Exceptions;
 using PaymentService.Application.Interfaces;
 using PaymentService.Domain.Enums;
 using PaymentService.Domain.Interfaces;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PaymentService.Application.Handlers.Commands
 {
-    public class VerifyPaymentCommandHandler : IRequestHandler<VerifyPaymentCommand, PaymentVerificationResult>
+    public class VerifyPaymentCommandHandler
+        : IRequestHandler<VerifyPaymentCommand, Result<PaymentVerificationResult>>
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPaymentGateway _paymentGateway;
@@ -28,36 +28,53 @@ namespace PaymentService.Application.Handlers.Commands
             _registrationService = registrationService;
         }
 
-        public async Task<PaymentVerificationResult> Handle(VerifyPaymentCommand request, CancellationToken cancellationToken)
+        public async Task<Result<PaymentVerificationResult>> Handle(
+            VerifyPaymentCommand request,
+            CancellationToken cancellationToken)
         {
-            var payment = await _unitOfWork.Payments.GetByTransactionIdAsync(request.TransactionId);
-            if (payment == null)
+            try
             {
-                throw new NotFoundException($"Payment with transaction ID {request.TransactionId} not found");
+                var payment = await _unitOfWork.Payments.GetByTransactionIdAsync(request.TransactionId);
+                if (payment == null)
+                {
+                    return Result<PaymentVerificationResult>.Failure(
+                        $"Payment with transaction ID {request.TransactionId} not found");
+                }
+
+                var verificationResponse = await _paymentGateway.VerifyPaymentAsync(request.TransactionId);
+
+                if (verificationResponse.IsSuccess && verificationResponse.Status == PaymentStatus.Success)
+                {
+                    payment.MarkAsSuccess(verificationResponse.GatewayResponse);
+
+                    // Complete patient registration
+                    await _registrationService.CompleteRegistrationAsync(payment.PatientId);
+                }
+                else
+                {
+                    payment.MarkAsFailed(
+                        verificationResponse.ErrorMessage ?? "Payment verification failed");
+                }
+
+                _unitOfWork.Payments.Update(payment);
+                await _unitOfWork.SaveAsync(cancellationToken);
+
+                var result = new PaymentVerificationResult(
+                    verificationResponse.IsSuccess,
+                    payment.Status,
+                    verificationResponse.IsSuccess
+                        ? "Payment verified successfully"
+                        : verificationResponse.ErrorMessage
+                );
+
+                return verificationResponse.IsSuccess
+                    ? Result<PaymentVerificationResult>.Success(result)
+                    : Result<PaymentVerificationResult>.Failure(result.Message);
             }
-
-            var verificationResponse = await _paymentGateway.VerifyPaymentAsync(request.TransactionId);
-
-            if (verificationResponse.IsSuccess && verificationResponse.Status == PaymentStatus.Success)
+            catch (Exception ex)
             {
-                payment.MarkAsSuccess(verificationResponse.GatewayResponse);
-
-                // Complete patient registration
-                await _registrationService.CompleteRegistrationAsync(payment.PatientId);
+                return Result<PaymentVerificationResult>.Failure($"Unexpected error: {ex.Message}");
             }
-            else
-            {
-                payment.MarkAsFailed(verificationResponse.ErrorMessage ?? "Payment verification failed");
-            }
-
-            _unitOfWork.Payments.Update(payment);
-            await _unitOfWork.SaveAsync(cancellationToken);
-
-            return new PaymentVerificationResult(
-                verificationResponse.IsSuccess,
-                payment.Status,
-                verificationResponse.IsSuccess ? "Payment verified successfully" : verificationResponse.ErrorMessage
-            );
         }
     }
 }

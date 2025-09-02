@@ -1,6 +1,6 @@
 using FluentValidation;
 using MediatR;
-using PatientService.Application.Common.Models;
+using PaymentService.Application.Common.Models;
 
 namespace PaymentService.Application.Common.Behaviours
 {

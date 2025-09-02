@@ -1,4 +1,4 @@
-﻿namespace PatientService.Application.Common.Models
+﻿namespace PaymentService.Application.Common.Models
 {
     public class Result
     {

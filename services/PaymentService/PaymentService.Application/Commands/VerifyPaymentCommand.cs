@@ -1,12 +1,19 @@
 ﻿using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using PaymentService.Application.Common.Models;
 
 namespace PaymentService.Application.Commands
 {
-    public record VerifyPaymentCommand(string TransactionId) : IRequest<PaymentVerificationResult>;
+    public class VerifyPaymentCommand : IRequest<Result<PaymentVerificationResult>>
+    {
+        public string TransactionId { get; set; }
 
+        // ✅ Parameterless constructor (needed for model binding / deserialization)
+        public VerifyPaymentCommand() { }
+
+        // ✅ Full constructor
+        public VerifyPaymentCommand(string transactionId)
+        {
+            TransactionId = transactionId;
+        }
+    }
 }
