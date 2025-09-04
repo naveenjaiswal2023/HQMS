@@ -1,7 +1,7 @@
 # Healthcare Quality & Management System (HQMS)
 
 ## Overview
-HQMS is an independent project developed to enhance practical skills in modern **.NET 6 architecture**, **Microservices**, and **Azure Cloud Services**.  
+HQMS is an independent project developed to enhance practical skills in modern **.NET 8 architecture**, **Microservices**, and **Azure Cloud Services**.  
 The system simulates a **hospital management solution** with features like patient registration, appointment management, doctor queues, and real-time notifications.
 
 ---
