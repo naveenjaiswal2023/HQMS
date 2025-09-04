@@ -37,4 +37,32 @@ The system simulates a **hospital management solution** with features like patie
 
 ## How to Run
 1. Clone the repository:
+2. Restore NuGet packages:
+
+dotnet restore
+
+
+3. Update the appsettings.json with your SQL Server and Azure configurations
+
+4. Run the backend API:
+
+dotnet run --project WebAPI/HQMS.WebAPI
+
+5. Run the frontend React app:
+
+cd Frontend
+npm install
+npm start
+
+Notes
+
+🚀 Work in Progress: This project is currently under development. While some features may not be fully implemented yet, the repository demonstrates my expertise in .NET 8, Microservices, Azure Cloud Services, Event-Driven Architecture, and modern architecture patterns.
+
+Sensitive production code is excluded for security.
+
+Contact
+
+Naveen Kumar
+Email: navinjaiswal05@gmail.com
+LinkedIn: https://www.linkedin.com/in/naveen-kumar-729a6653/
 
