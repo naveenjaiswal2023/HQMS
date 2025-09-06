@@ -30,33 +30,29 @@ stages:
   displayName: "Deploy Queue Service to Staging"
   dependsOn: Build
   jobs:
-    - deployment: StagingDeploy
-      environment: 'Staging'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - template: ../../templates/dotnet-deploy-template.yml
-                parameters:
-                  appName: 'hqms-queue-api-staging'
-                  projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
-                  buildOnly: false
-                  resourceGroupName: $(resourceGroupName)
+    - job: StagingDeploy
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-queue-api-staging'
+            projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
+            buildOnly: false
+            resourceGroupName: $(resourceGroupName)
 
 - stage: Deploy_Prod
   displayName: "Deploy Queue Service to Production"
   dependsOn: Deploy_Staging
   condition: succeeded()
   jobs:
-    - deployment: ProdDeploy
-      environment: 'Prod'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - template: ../../templates/dotnet-deploy-template.yml
-                parameters:
-                  appName: 'hqms-queue-api'
-                  projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
-                  buildOnly: false
-                  resourceGroupName: $(resourceGroupName)
+    - job: ProdDeploy
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-queue-api'
+            projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
+            buildOnly: false
+            resourceGroupName: $(resourceGroupName)

@@ -30,33 +30,29 @@ stages:
   displayName: "Deploy Appointment Service to Staging"
   dependsOn: Build
   jobs:
-    - deployment: StagingDeploy
-      environment: 'Staging'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - template: ../../templates/dotnet-deploy-template.yml
-                parameters:
-                  appName: 'hqms-appointment-api-staging'
-                  projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
-                  buildOnly: false
-                  resourceGroupName: $(resourceGroupName)
+    - job: StagingDeploy
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-appointment-api-staging'
+            projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
+            buildOnly: false
+            resourceGroupName: $(resourceGroupName)
 
 - stage: Deploy_Prod
   displayName: "Deploy Appointment Service to Production"
   dependsOn: Deploy_Staging
   condition: succeeded()
   jobs:
-    - deployment: ProdDeploy
-      environment: 'Prod'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - template: ../../templates/dotnet-deploy-template.yml
-                parameters:
-                  appName: 'hqms-appointment-api'
-                  projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
-                  buildOnly: false
-                  resourceGroupName: $(resourceGroupName)
+    - job: ProdDeploy
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-appointment-api'
+            projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
+            buildOnly: false
+            resourceGroupName: $(resourceGroupName)

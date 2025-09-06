@@ -70,16 +70,14 @@ steps:
       appName: ${{ parameters.appName }}
       resourceGroupName: ${{ parameters.resourceGroupName }}
       package: '$(Pipeline.Workspace)/drop/**/*.zip'
-      deploymentMethod: 'auto'
 
-  # Optional: Rollback by redeploying previous artifact if deployment fails
+  # Rollback to previous successful artifact if deployment fails
   - task: AzureWebApp@1
-    displayName: 'Rollback Deployment if Failed - ${{ parameters.appName }}'
+    displayName: 'Rollback to Previous Artifact - ${{ parameters.appName }}'
     condition: failed()
     inputs:
       azureSubscription: $(azureSubscription)
       appType: 'webApp'
       appName: ${{ parameters.appName }}
       resourceGroupName: ${{ parameters.resourceGroupName }}
-      package: '$(Pipeline.Workspace)/drop/**/*.zip'
-      deploymentMethod: 'auto'
+      package: '$(Pipeline.Workspace)/drop_previous/**/*.zip'

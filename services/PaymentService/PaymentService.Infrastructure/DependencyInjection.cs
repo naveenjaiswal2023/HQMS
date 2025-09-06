@@ -19,7 +19,7 @@ using SharedInfrastructure.ExternalServices;
 using SharedInfrastructure.ExternalServices.Interfaces;
 using SharedInfrastructure.Http;
 using SharedInfrastructure.Settings;
-using SharedInfrastructures.ExternalServices;
+//using SharedInfrastructures.ExternalServices;
 using System.Net.Http;
 using System.Reflection;
 
