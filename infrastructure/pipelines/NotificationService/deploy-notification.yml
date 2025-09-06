@@ -12,7 +12,6 @@ variables:
 - group: HQMS-Shared
 
 stages:
-# Build Stage
 - stage: Build
   displayName: "Build & Publish Notification Service"
   jobs:
@@ -27,7 +26,6 @@ stages:
             buildOnly: true
             resourceGroupName: $(resourceGroupName)
 
-# Deploy to Staging
 - stage: Deploy_Staging
   displayName: "Deploy Notification Service to Staging"
   dependsOn: Build
@@ -45,7 +43,6 @@ stages:
                   buildOnly: false
                   resourceGroupName: $(resourceGroupName)
 
-# Deploy to Production
 - stage: Deploy_Prod
   displayName: "Deploy Notification Service to Production"
   dependsOn: Deploy_Staging
@@ -55,38 +52,11 @@ stages:
       environment: 'Prod'
       strategy:
         runOnce:
-          preDeploy:
+          deploy:
             steps:
-              - task: AzureWebApp@1
-                displayName: "Deploy to Staging Slot"
-                inputs:
-                  azureSubscription: $(azureSubscription)
-                  appType: 'webApp'
+              - template: ../../templates/dotnet-deploy-template.yml
+                parameters:
                   appName: 'hqms-notification-api'
-                  deployToSlotOrASE: true
+                  projectPath: 'services/NotificationService/NotificationService.API/NotificationService.API.csproj'
+                  buildOnly: false
                   resourceGroupName: $(resourceGroupName)
-                  slotName: 'staging'
-                  package: '$(Pipeline.Workspace)/drop/**/*.zip'
-          routeTraffic:
-            steps:
-              - task: AzureAppServiceManage@0
-                displayName: "Swap Staging Slot with Production"
-                inputs:
-                  azureSubscription: $(azureSubscription)
-                  Action: 'Swap Slots'
-                  WebAppName: 'hqms-notification-api'
-                  ResourceGroupName: $(resourceGroupName)
-                  SourceSlot: 'staging'
-                  SwapWithProduction: true
-          on:
-            failure:
-              steps:
-                - task: AzureAppServiceManage@0
-                  displayName: "Rollback to Previous Production"
-                  inputs:
-                    azureSubscription: $(azureSubscription)
-                    Action: 'Swap Slots'
-                    WebAppName: 'hqms-notification-api'
-                    ResourceGroupName: $(resourceGroupName)
-                    SourceSlot: 'staging'
-                    TargetSlot: 'production'

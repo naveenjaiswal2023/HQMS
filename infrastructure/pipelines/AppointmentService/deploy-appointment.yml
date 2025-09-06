@@ -52,38 +52,11 @@ stages:
       environment: 'Prod'
       strategy:
         runOnce:
-          preDeploy:
+          deploy:
             steps:
-              - task: AzureWebApp@1
-                displayName: "Deploy to Staging Slot"
-                inputs:
-                  azureSubscription: $(azureSubscription)
-                  appType: 'webApp'
+              - template: ../../templates/dotnet-deploy-template.yml
+                parameters:
                   appName: 'hqms-appointment-api'
-                  deployToSlotOrASE: true
+                  projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
+                  buildOnly: false
                   resourceGroupName: $(resourceGroupName)
-                  slotName: 'staging'
-                  package: '$(Pipeline.Workspace)/drop/**/*.zip'
-          routeTraffic:
-            steps:
-              - task: AzureAppServiceManage@0
-                displayName: "Swap Staging Slot with Production"
-                inputs:
-                  azureSubscription: $(azureSubscription)
-                  Action: 'Swap Slots'
-                  WebAppName: 'hqms-appointment-api'
-                  ResourceGroupName: $(resourceGroupName)
-                  SourceSlot: 'staging'
-                  SwapWithProduction: true
-          on:
-            failure:
-              steps:
-                - task: AzureAppServiceManage@0
-                  displayName: "Rollback to Previous Production"
-                  inputs:
-                    azureSubscription: $(azureSubscription)
-                    Action: 'Swap Slots'
-                    WebAppName: 'hqms-appointment-api'
-                    ResourceGroupName: $(resourceGroupName)
-                    SourceSlot: 'staging'
-                    TargetSlot: 'production'
