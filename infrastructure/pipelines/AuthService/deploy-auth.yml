@@ -12,7 +12,6 @@ variables:
 - group: HQMS-Shared
 
 stages:
-# Build
 - stage: Build
   displayName: "Build & Publish Auth Service"
   jobs:
@@ -27,39 +26,33 @@ stages:
             buildOnly: true
             resourceGroupName: $(resourceGroupName)
 
-# Deploy Staging
 - stage: Deploy_Staging
   displayName: "Deploy Auth Service to Staging"
   dependsOn: Build
   jobs:
-    - deployment: StagingDeploy
-      environment: 'Staging'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - template: ../../templates/dotnet-deploy-template.yml
-                parameters:
-                  appName: 'hqms-auth-api-staging'
-                  projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
-                  buildOnly: false
-                  resourceGroupName: $(resourceGroupName)
+    - job: StagingDeploy
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-auth-api-staging'
+            projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
+            buildOnly: false
+            resourceGroupName: $(resourceGroupName)
 
-# Deploy Production
 - stage: Deploy_Prod
   displayName: "Deploy Auth Service to Production"
   dependsOn: Deploy_Staging
   condition: succeeded()
   jobs:
-    - deployment: ProdDeploy
-      environment: 'Prod'
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              - template: ../../templates/dotnet-deploy-template.yml
-                parameters:
-                  appName: 'hqms-auth-api'
-                  projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
-                  buildOnly: false
-                  resourceGroupName: $(resourceGroupName)
+    - job: ProdDeploy
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-auth-api'
+            projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
+            buildOnly: false
+            resourceGroupName: $(resourceGroupName)
