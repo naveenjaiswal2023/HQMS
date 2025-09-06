@@ -1,13 +1,90 @@
+name: Deploy-AppointmentService
+
 trigger:
   branches:
     include:
       - main
+  paths:
+    include:
+      - services/AppointmentService/**
+
+variables:
+- group: HQMS-Shared
 
 stages:
-  - stage: DeployAppointment
-    displayName: "Deploy Appointment Service"
-    jobs:
-      - template: ../../templates/dotnet-deploy-template.yml
-        parameters:
-          appName: 'hqms-appointment-api'
-          projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
+- stage: Build
+  displayName: "Build & Publish Appointment Service"
+  jobs:
+    - job: BuildJob
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-appointment-api'
+            projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
+            buildOnly: true
+            resourceGroupName: 'hqms-rg'
+
+- stage: Deploy_Staging
+  displayName: "Deploy to Staging"
+  dependsOn: Build
+  jobs:
+    - deployment: StagingDeploy
+      environment: 'Staging'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - template: ../../templates/dotnet-deploy-template.yml
+                parameters:
+                  appName: 'hqms-appointment-api'
+                  projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
+                  buildOnly: false
+
+- stage: Deploy_Prod
+  displayName: "Deploy to Prod"
+  dependsOn: Deploy_Staging
+  condition: succeeded()
+  jobs:
+    - deployment: ProdDeploy
+      environment: 'Prod'
+      strategy:
+        runOnce:
+          preDeploy:
+            steps:
+              - task: AzureWebApp@1
+                displayName: "Deploy to Staging Slot"
+                inputs:
+                  azureSubscription: $(azureSubscription)
+                  appType: 'webApp'
+                  appName: 'hqms-appointment-api'
+                  deployToSlotOrASE: true
+                  resourceGroupName: $(resourceGroupName)
+                  slotName: 'staging'
+                  package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+
+          routeTraffic:
+            steps:
+              - task: AzureAppServiceManage@0
+                displayName: "Swap Staging Slot with Production"
+                inputs:
+                  azureSubscription: $(azureSubscription)
+                  Action: 'Swap Slots'
+                  WebAppName: 'hqms-appointment-api'
+                  ResourceGroupName: $(resourceGroupName)
+                  SourceSlot: 'staging'
+                  SwapWithProduction: true
+
+          on:
+            failure:
+              steps:
+                - task: AzureAppServiceManage@0
+                  displayName: "Rollback Appointment API"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    Action: 'Swap Slots'
+                    WebAppName: 'hqms-appointment-api'
+                    ResourceGroupName: $(resourceGroupName)
+                    SourceSlot: 'production'
+                    TargetSlot: 'staging'

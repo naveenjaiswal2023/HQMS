@@ -1,20 +1,90 @@
+name: Deploy-NotificationService
+
 trigger:
   branches:
     include:
       - main
+  paths:
+    include:
+      - services/NotificationService/**
+
+variables:
+- group: HQMS-Shared
 
 stages:
-  - stage: DeployNotification
-    displayName: "Deploy Notification Service"
-    jobs:
-      - job: Deploy
-        displayName: "Deploy Job"
-        pool:
-          vmImage: 'ubuntu-latest'
-        variables:
-          buildConfiguration: 'Release'
-        steps:
-          - template: ../../templates/dotnet-deploy-template.yml
-            parameters:
-              appName: 'hqms-notification-api'
-              projectPath: 'services/NotificationService/NotificationService.API/NotificationService.API.csproj'
+- stage: Build
+  displayName: "Build & Publish Notification Service"
+  jobs:
+    - job: BuildJob
+      pool:
+        vmImage: 'ubuntu-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-notification-api'
+            projectPath: 'services/NotificationService/NotificationService.API/NotificationService.API.csproj'
+            buildOnly: true
+            resourceGroupName: 'hqms-rg'
+
+- stage: Deploy_Staging
+  displayName: "Deploy to Staging"
+  dependsOn: Build
+  jobs:
+    - deployment: StagingDeploy
+      environment: 'Staging'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - template: ../../templates/dotnet-deploy-template.yml
+                parameters:
+                  appName: 'hqms-notification-api'
+                  projectPath: 'services/NotificationService/NotificationService.API/NotificationService.API.csproj'
+                  buildOnly: false
+
+- stage: Deploy_Prod
+  displayName: "Deploy to Prod"
+  dependsOn: Deploy_Staging
+  condition: succeeded()
+  jobs:
+    - deployment: ProdDeploy
+      environment: 'Prod'
+      strategy:
+        runOnce:
+          preDeploy:
+            steps:
+              - task: AzureWebApp@1
+                displayName: "Deploy to Staging Slot"
+                inputs:
+                  azureSubscription: $(azureSubscription)
+                  appType: 'webApp'
+                  appName: 'hqms-notification-api'
+                  deployToSlotOrASE: true
+                  resourceGroupName: $(resourceGroupName)
+                  slotName: 'staging'
+                  package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+
+          routeTraffic:
+            steps:
+              - task: AzureAppServiceManage@0
+                displayName: "Swap Staging Slot with Production"
+                inputs:
+                  azureSubscription: $(azureSubscription)
+                  Action: 'Swap Slots'
+                  WebAppName: 'hqms-notification-api'
+                  ResourceGroupName: $(resourceGroupName)
+                  SourceSlot: 'staging'
+                  SwapWithProduction: true
+
+          on:
+            failure:
+              steps:
+                - task: AzureAppServiceManage@0
+                  displayName: "Rollback Notification API"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    Action: 'Swap Slots'
+                    WebAppName: 'hqms-notification-api'
+                    ResourceGroupName: $(resourceGroupName)
+                    SourceSlot: 'production'
+                    TargetSlot: 'staging'

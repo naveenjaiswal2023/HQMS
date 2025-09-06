@@ -8,8 +8,101 @@ trigger:
     include:
       - services/AuthService/**
 
+variables:
+- group: HQMS-Shared
+
 stages:
-- template: ../../templates/dotnet-deploy-template.yml
-  parameters:
-    appName: 'hqms-auth-api'
-    projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
+# -----------------
+# Build Stage
+# -----------------
+- stage: Build
+  displayName: "Build & Publish Auth Service"
+  jobs:
+    - job: BuildJob
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - template: ../../templates/dotnet-deploy-template.yml
+          parameters:
+            appName: 'hqms-auth-api'
+            projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
+            buildOnly: true
+            resourceGroupName: 'hqms-rg'
+
+# -----------------
+# Deploy to QA
+# -----------------
+- stage: Deploy_QA
+  displayName: "Deploy to QA"
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+    - deployment: QADeploy
+      environment: 'QA'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - template: ../../templates/dotnet-deploy-template.yml
+                parameters:
+                  appName: 'hqms-auth-api'
+                  projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
+                  buildOnly: false
+
+# -----------------
+# Deploy to Prod (slot + rollback)
+# -----------------
+- stage: Deploy_Prod
+  displayName: "Deploy to Prod"
+  dependsOn: Deploy_QA
+  condition: succeeded()
+  jobs:
+    - deployment: ProdDeploy
+      environment: 'Prod'
+      strategy:
+        runOnce:
+          preDeploy:
+            steps:
+              - script: echo "Backing up current production deployment..."
+                displayName: "Backup Current Deployment"
+
+              - task: AzureWebApp@1
+                displayName: "Deploy to Staging Slot"
+                inputs:
+                  azureSubscription: $(azureSubscription)
+                  appType: 'webApp'
+                  appName: 'hqms-auth-api'
+                  deployToSlotOrASE: true
+                  resourceGroupName: $(resourceGroupName)
+                  slotName: 'staging'
+                  package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+
+          deploy:
+            steps:
+              - script: echo "Preparing slot swap..."
+                displayName: "Prepare for Swap"
+
+          routeTraffic:
+            steps:
+              - task: AzureAppServiceManage@0
+                displayName: "Swap Staging Slot with Production"
+                inputs:
+                  azureSubscription: $(azureSubscription)
+                  Action: 'Swap Slots'
+                  WebAppName: 'hqms-auth-api'
+                  ResourceGroupName: $(resourceGroupName)
+                  SourceSlot: 'staging'
+                  SwapWithProduction: true
+
+          on:
+            failure:
+              steps:
+                - task: AzureAppServiceManage@0
+                  displayName: "Rollback to Previous Deployment"
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    Action: 'Swap Slots'
+                    WebAppName: 'hqms-auth-api'
+                    ResourceGroupName: $(resourceGroupName)
+                    SourceSlot: 'production'
+                    TargetSlot: 'staging'

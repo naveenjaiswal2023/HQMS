@@ -3,23 +3,32 @@ parameters:
     type: string
   - name: projectPath
     type: string
+  - name: buildOnly
+    type: boolean
+    default: false
 
 steps:
+  # -----------------
   # Install .NET SDK
+  # -----------------
   - task: UseDotNet@2
     displayName: 'Use .NET 8 SDK'
     inputs:
       packageType: 'sdk'
       version: '8.x'
 
+  # -----------------
   # Restore packages
+  # -----------------
   - task: DotNetCoreCLI@2
     displayName: 'Restore Packages'
     inputs:
       command: 'restore'
       projects: ${{ parameters.projectPath }}
 
+  # -----------------
   # Build project
+  # -----------------
   - task: DotNetCoreCLI@2
     displayName: 'Build Project'
     inputs:
@@ -27,21 +36,50 @@ steps:
       projects: ${{ parameters.projectPath }}
       arguments: '--configuration $(buildConfiguration)'
 
-  # Publish project
-  - task: DotNetCoreCLI@2
-    displayName: 'Publish Project'
-    inputs:
-      command: 'publish'
-      publishWebProjects: false
-      projects: ${{ parameters.projectPath }}
-      arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-      zipAfterPublish: true
+  # -----------------
+  # Publish project (only in build stage)
+  # -----------------
+  - ${{ if eq(parameters.buildOnly, true) }}:
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish Project'
+      inputs:
+        command: 'publish'
+        publishWebProjects: false
+        projects: ${{ parameters.projectPath }}
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+        zipAfterPublish: true
 
-  # Deploy to Azure App Service
-  - task: AzureWebApp@1
-    displayName: 'Deploy to Azure WebApp - ${{ parameters.appName }}'
-    inputs:
-      azureSubscription: 'AzureServiceConnection'   # must match your service connection name in DevOps
-      appType: 'webApp'
-      appName: ${{ parameters.appName }}
-      package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+    - publish: $(Build.ArtifactStagingDirectory)
+      artifact: drop
+
+  # -----------------
+  # Deploy project (only if not build stage)
+  # -----------------
+  - ${{ if eq(parameters.buildOnly, false) }}:
+    - download: current
+      artifact: drop
+
+    # Main deployment
+    - task: AzureWebApp@1
+      displayName: 'Deploy to Azure WebApp - ${{ parameters.appName }}'
+      inputs:
+        azureSubscription: 'AzureServiceConnection'
+        appType: 'webApp'
+        appName: ${{ parameters.appName }}
+        package: '$(Pipeline.Workspace)/drop/**/*.zip'
+
+    # Rollback step (executes only if deployment fails)
+    - task: AzureCLI@2
+      displayName: 'Rollback Deployment (Swap Slot Back)'
+      condition: failed()
+      inputs:
+        azureSubscription: 'AzureServiceConnection'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Deployment failed, rolling back..."
+          az webapp deployment slot swap `
+            --resource-group hqms-rg `
+            --name ${{ parameters.appName }} `
+            --slot staging `
+            --target-slot production
