@@ -38,7 +38,7 @@ stages:
             steps:
               - template: ../../templates/dotnet-deploy-template.yml
                 parameters:
-                  appName: 'hqms-queue-api-staging'
+                  appName: 'hqms-queue-api'
                   projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
                   buildOnly: false
                   resourceGroupName: $(resourceGroupName)
