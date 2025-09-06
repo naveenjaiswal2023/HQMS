@@ -1,5 +1,4 @@
 # templates/dotnet-deploy-template.yml
-
 parameters:
   - name: appName
     type: string
@@ -63,7 +62,6 @@ steps:
   - download: current
     artifact: drop
 
-  # Deploy to Staging Slot
   - task: AzureWebApp@1
     displayName: 'Deploy to Staging Slot - ${{ parameters.appName }}'
     inputs:
@@ -75,7 +73,6 @@ steps:
       slotName: 'staging'
       package: '$(Pipeline.Workspace)/drop/**/*.zip'
 
-  # Swap staging with production
   - task: AzureAppServiceManage@0
     displayName: 'Swap Staging Slot with Production - ${{ parameters.appName }}'
     inputs:
@@ -86,7 +83,6 @@ steps:
       SourceSlot: 'staging'
       SwapWithProduction: true
 
-  # Rollback if swap fails
   - task: AzureAppServiceManage@0
     displayName: 'Rollback to Previous Production - ${{ parameters.appName }}'
     condition: failed()

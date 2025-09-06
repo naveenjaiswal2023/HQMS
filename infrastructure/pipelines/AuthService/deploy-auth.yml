@@ -12,7 +12,7 @@ variables:
 - group: HQMS-Shared
 
 stages:
-# Build Stage
+# Build
 - stage: Build
   displayName: "Build & Publish Auth Service"
   jobs:
@@ -27,7 +27,7 @@ stages:
             buildOnly: true
             resourceGroupName: $(resourceGroupName)
 
-# Deploy to Staging
+# Deploy Staging
 - stage: Deploy_Staging
   displayName: "Deploy Auth Service to Staging"
   dependsOn: Build
@@ -45,7 +45,7 @@ stages:
                   buildOnly: false
                   resourceGroupName: $(resourceGroupName)
 
-# Deploy to Production
+# Deploy Production
 - stage: Deploy_Prod
   displayName: "Deploy Auth Service to Production"
   dependsOn: Deploy_Staging
@@ -55,39 +55,11 @@ stages:
       environment: 'Prod'
       strategy:
         runOnce:
-          preDeploy:
+          deploy:
             steps:
-              - script: echo "Deploying to staging slot..."
-              - task: AzureWebApp@1
-                displayName: "Deploy to Staging Slot"
-                inputs:
-                  azureSubscription: $(azureSubscription)
-                  appType: 'webApp'
+              - template: ../../templates/dotnet-deploy-template.yml
+                parameters:
                   appName: 'hqms-auth-api'
-                  deployToSlotOrASE: true
+                  projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
+                  buildOnly: false
                   resourceGroupName: $(resourceGroupName)
-                  slotName: 'staging'
-                  package: '$(Pipeline.Workspace)/drop/**/*.zip'
-          routeTraffic:
-            steps:
-              - task: AzureAppServiceManage@0
-                displayName: "Swap Staging Slot with Production"
-                inputs:
-                  azureSubscription: $(azureSubscription)
-                  Action: 'Swap Slots'
-                  WebAppName: 'hqms-auth-api'
-                  ResourceGroupName: $(resourceGroupName)
-                  SourceSlot: 'staging'
-                  SwapWithProduction: true
-          on:
-            failure:
-              steps:
-                - task: AzureAppServiceManage@0
-                  displayName: "Rollback to Previous Production"
-                  inputs:
-                    azureSubscription: $(azureSubscription)
-                    Action: 'Swap Slots'
-                    WebAppName: 'hqms-auth-api'
-                    ResourceGroupName: $(resourceGroupName)
-                    SourceSlot: 'staging'
-                    TargetSlot: 'production'
