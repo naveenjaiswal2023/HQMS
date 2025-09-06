@@ -38,7 +38,7 @@ stages:
             steps:
               - template: ../../templates/dotnet-deploy-template.yml
                 parameters:
-                  appName: 'hqms-appointment-api'
+                  appName: 'hqms-appointment-api-staging'
                   projectPath: 'services/AppointmentService/AppointmentService.API/AppointmentService.API.csproj'
                   buildOnly: false
                   resourceGroupName: $(resourceGroupName)
