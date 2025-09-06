@@ -63,33 +63,23 @@ steps:
     artifact: drop
 
   - task: AzureWebApp@1
-    displayName: 'Deploy to Staging Slot - ${{ parameters.appName }}'
+    displayName: 'Deploy to App Service - ${{ parameters.appName }}'
     inputs:
       azureSubscription: $(azureSubscription)
       appType: 'webApp'
       appName: ${{ parameters.appName }}
-      deployToSlotOrASE: true
       resourceGroupName: ${{ parameters.resourceGroupName }}
-      slotName: 'staging'
       package: '$(Pipeline.Workspace)/drop/**/*.zip'
+      deploymentMethod: 'auto'
 
-  - task: AzureAppServiceManage@0
-    displayName: 'Swap Staging Slot with Production - ${{ parameters.appName }}'
-    inputs:
-      azureSubscription: $(azureSubscription)
-      Action: 'Swap Slots'
-      WebAppName: ${{ parameters.appName }}
-      ResourceGroupName: ${{ parameters.resourceGroupName }}
-      SourceSlot: 'staging'
-      SwapWithProduction: true
-
-  - task: AzureAppServiceManage@0
-    displayName: 'Rollback to Previous Production - ${{ parameters.appName }}'
+  # Optional: Rollback by redeploying previous artifact if deployment fails
+  - task: AzureWebApp@1
+    displayName: 'Rollback Deployment if Failed - ${{ parameters.appName }}'
     condition: failed()
     inputs:
       azureSubscription: $(azureSubscription)
-      Action: 'Swap Slots'
-      WebAppName: ${{ parameters.appName }}
-      ResourceGroupName: ${{ parameters.resourceGroupName }}
-      SourceSlot: 'staging'
-      TargetSlot: 'production'
+      appType: 'webApp'
+      appName: ${{ parameters.appName }}
+      resourceGroupName: ${{ parameters.resourceGroupName }}
+      package: '$(Pipeline.Workspace)/drop/**/*.zip'
+      deploymentMethod: 'auto'
