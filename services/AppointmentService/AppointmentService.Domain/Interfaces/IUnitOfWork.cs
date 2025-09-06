@@ -9,7 +9,7 @@ namespace AppointmentService.Domain.Interfaces
     public interface IUnitOfWork
     {
         IAppointmentRepository Appointments { get; }
-        Task<int> SaveAsync();
+        Task<int> SaveAsync(CancellationToken cancellationToken);
         // Expose repositories here if needed:
         // IPatientRepository Patients { get; }
         // IDoctorRepository Doctors { get; }

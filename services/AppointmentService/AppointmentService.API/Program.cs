@@ -152,11 +152,6 @@ builder.Services.AddSwaggerGen(options =>
             new List<string>()
         }
     });
-    // ✅ Tell Swagger to use the Gateway base path
-    //options.AddServer(new OpenApiServer
-    //{
-    //    Url = "https://localhost:7260/appointments"
-    //});
 });
 
 // ✅ Controllers
@@ -167,24 +162,7 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    //app.UseSwagger(c =>
-    //{
-    //    c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
-    //    {
-    //        var pathBase = "/appointments";
-    //        swaggerDoc.Servers = new List<OpenApiServer>
-    //        {
-    //            new OpenApiServer { Url = $"{httpReq.Scheme}://{httpReq.Host.Value}{pathBase}" }
-    //        };
-    //    });
-    //});
-
-    //app.UseSwaggerUI(c =>
-    //{
-    //    c.SwaggerEndpoint("/appointments/swagger/v1/swagger.json", "Appointment Service API V1");
-    //    c.RoutePrefix = "swagger";
-    //});
-
+    
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {

@@ -31,9 +31,9 @@ namespace AppointmentService.Application.Handlers.Commands
                 throw new KeyNotFoundException($"Appointment with ID {request.AppointmentId} not found.");
 
             appointment.IsQueueGenerated = request.Status;
-            _unitOfWork.Appointments.UpdateAsync(appointment);
+            _unitOfWork.Appointments.UpdateAsync(appointment,cancellationToken);
 
-            await _unitOfWork.SaveAsync();
+            await _unitOfWork.SaveAsync(cancellationToken);
 
             _logger.LogInformation("Updated appointment {AppointmentId} status to {Status}", request.AppointmentId, request.Status);
             return true;
