@@ -40,7 +40,7 @@ stages:
             steps:
               - template: ../../templates/dotnet-deploy-template.yml
                 parameters:
-                  appName: 'hqms-auth-api'
+                  appName: 'hqms-auth-api-staging'
                   projectPath: 'services/AuthService/AuthService.API/AuthService.API.csproj'
                   buildOnly: false
                   resourceGroupName: $(resourceGroupName)
