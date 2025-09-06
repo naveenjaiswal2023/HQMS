@@ -2,9 +2,15 @@
 {
     public enum AppointmentType
     {
-        Scheduled = 0,
-        WalkIn = 1,
-        Emergency = 2,
-        Consultation=3
+        Consultation = 1,
+        FollowUp = 2,
+        CheckUp = 3,
+        Surgery = 4,
+        Emergency = 5,
+        Vaccination = 6,
+        Scheduled = 7,
+        WalkIn = 8,
+        TestResults = 9,
+        Telemedicine = 10,  
     }
 }

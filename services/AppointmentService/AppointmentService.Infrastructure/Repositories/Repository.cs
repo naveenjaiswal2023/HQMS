@@ -24,18 +24,18 @@ namespace AppointmentService.Infrastructure.Repositories
             return await _context.Set<T>().ToListAsync();
         }
 
-        public async Task AddAsync(T entity)
+        public async Task AddAsync(T entity,CancellationToken cancellationToken)
         {
             await _context.Set<T>().AddAsync(entity);
         }
 
-        public Task UpdateAsync(T entity)
+        public Task UpdateAsync(T entity, CancellationToken cancellationToken)
         {
             _context.Set<T>().Update(entity);
             return Task.CompletedTask;
         }
 
-        public Task DeleteAsync(T entity)
+        public Task DeleteAsync(T entity, CancellationToken cancellationToken)
         {
             _context.Set<T>().Remove(entity);
             return Task.CompletedTask;

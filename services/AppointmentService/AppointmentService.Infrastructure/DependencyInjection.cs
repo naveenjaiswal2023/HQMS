@@ -3,6 +3,7 @@ using AppointmentService.Domain.Interfaces;
 using AppointmentService.Infrastructure.Events;
 using AppointmentService.Infrastructure.Messaging;
 using AppointmentService.Infrastructure.Persistence;
+using AppointmentService.Infrastructure.Repositories;
 using AppointmentService.Infrastructure.Services;
 using Azure.Messaging.ServiceBus;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,6 @@ using SharedInfrastructure.ExternalServices;
 using SharedInfrastructure.ExternalServices.Interfaces;
 using SharedInfrastructure.Http;
 using SharedInfrastructure.Settings;
-using SharedInfrastructures.ExternalServices;
 using System.Net.Http;
 
 namespace AppointmentService.Infrastructure
@@ -50,7 +50,7 @@ namespace AppointmentService.Infrastructure
             services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
 
             // ✅ External API configuration
-            services.Configure<ServiceApiOptions>(configuration.GetSection("ServicesAuth"));
+            services.Configure<ServiceApiOptions>(configuration.GetSection("ServicesApi"));
 
             // ✅ Token provider & handler
             services.AddScoped<IInternalTokenProvider, InternalTokenProvider>();
@@ -106,15 +106,17 @@ namespace AppointmentService.Infrastructure
             .AddPolicyHandler(retryPolicy)
             .AddPolicyHandler(circuitBreakerPolicy);
 
-            // ✅ Cache & Context
+            // Cache & Context
             services.AddMemoryCache();
             services.AddHttpContextAccessor();
 
-            // ✅ Scoped application services
+            // Scoped application services
             services.AddScoped<IDomainEventPublisher, DomainEventPublisher>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<ICacheService, CacheService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
+            services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+            services.AddScoped<IDoctorScheduleRepository, DoctorScheduleRepository>();
 
             return services;
         }

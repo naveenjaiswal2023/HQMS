@@ -36,9 +36,6 @@ namespace AppointmentService.Infrastructure.Persistence.Configurations
             builder.Property(a => a.Remarks)
                 .HasMaxLength(500);
 
-            builder.Property(a => a.CreatedByUserId)
-                .IsRequired(false);
-
             // ✅ New property: IsQueueGenerated
             builder.Property(a => a.IsQueueGenerated)
                 .IsRequired()

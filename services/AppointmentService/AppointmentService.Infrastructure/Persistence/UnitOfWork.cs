@@ -14,7 +14,7 @@ namespace AppointmentService.Infrastructure.Persistence
             Appointments = (IAppointmentRepository)new AppointmentRepository(context);
         }
 
-        public async Task<int> SaveAsync() => await _context.SaveChangesAsync();
+        public async Task<int> SaveAsync(CancellationToken cancellationToken) => await _context.SaveChangesAsync();
         public void Dispose() => _context.Dispose();
 
     }

@@ -28,6 +28,8 @@ namespace AppointmentService.Infrastructure.Persistence
 
         // Entities
         public DbSet<Appointment> Appointments { get; set; }
+        public DbSet<DoctorSchedule> DoctorSchedules { get; set; }
+
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
