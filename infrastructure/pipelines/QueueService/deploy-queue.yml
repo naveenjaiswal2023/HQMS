@@ -12,21 +12,24 @@ variables:
 - group: HQMS-Shared
 
 stages:
+# Build Stage
 - stage: Build
   displayName: "Build & Publish Queue Service"
   jobs:
     - job: BuildJob
       pool:
-        vmImage: 'ubuntu-latest'
+        vmImage: 'windows-latest'
       steps:
         - template: ../../templates/dotnet-deploy-template.yml
           parameters:
             appName: 'hqms-queue-api'
             projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
             buildOnly: true
+            resourceGroupName: $(resourceGroupName)
 
+# Deploy to Staging
 - stage: Deploy_Staging
-  displayName: "Deploy to Staging"
+  displayName: "Deploy Queue Service to Staging"
   dependsOn: Build
   jobs:
     - deployment: StagingDeploy
@@ -37,13 +40,14 @@ stages:
             steps:
               - template: ../../templates/dotnet-deploy-template.yml
                 parameters:
-                  appName: 'hqms-queue-api'
+                  appName: 'hqms-queue-api-staging'
                   projectPath: 'services/QueueService/QueueService.API/QueueService.API.csproj'
                   buildOnly: false
-                  resourceGroupName: 'hqms-rg'
+                  resourceGroupName: $(resourceGroupName)
 
+# Deploy to Production
 - stage: Deploy_Prod
-  displayName: "Deploy to Prod"
+  displayName: "Deploy Queue Service to Production"
   dependsOn: Deploy_Staging
   condition: succeeded()
   jobs:
@@ -62,8 +66,7 @@ stages:
                   deployToSlotOrASE: true
                   resourceGroupName: $(resourceGroupName)
                   slotName: 'staging'
-                  package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
-
+                  package: '$(Pipeline.Workspace)/drop/**/*.zip'
           routeTraffic:
             steps:
               - task: AzureAppServiceManage@0
@@ -75,16 +78,15 @@ stages:
                   ResourceGroupName: $(resourceGroupName)
                   SourceSlot: 'staging'
                   SwapWithProduction: true
-
           on:
             failure:
               steps:
                 - task: AzureAppServiceManage@0
-                  displayName: "Rollback Queue API"
+                  displayName: "Rollback to Previous Production"
                   inputs:
                     azureSubscription: $(azureSubscription)
                     Action: 'Swap Slots'
                     WebAppName: 'hqms-queue-api'
                     ResourceGroupName: $(resourceGroupName)
-                    SourceSlot: 'production'
-                    TargetSlot: 'staging'
+                    SourceSlot: 'staging'
+                    TargetSlot: 'production'
