@@ -1,10 +1,12 @@
 ﻿using Contracts.Patients;
 using SharedInfrastructure.DTO;
 using SharedInfrastructure.ExternalServices.Interfaces;
+using SharedInfrastructure.Settings;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -59,16 +61,37 @@ namespace SharedInfrastructure.ExternalServices
 
         public async Task<bool> PatientExistsAsync(Guid patientId, CancellationToken cancellationToken = default)
         {
-            var response = await _httpClient.GetAsync($"/patients/{patientId}/exists", cancellationToken);
+            var response = await _httpClient.GetAsync($"/api/patients/{patientId}", cancellationToken);
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return false;
 
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                // Log or handle error content here
+                throw new ApplicationException($"API returned error {response.StatusCode}: {errorContent}");
+            }
 
-            var result = await response.Content.ReadFromJsonAsync<bool>(cancellationToken: cancellationToken);
+            var contentString = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            return result;
+            //bool result;
+            try
+            {
+                var result = JsonSerializer.Deserialize<Result<PatientDto>>(contentString);
+                if (result.Succeeded)
+                    return true;
+                else
+                    return false;
+            }
+            catch (JsonException)
+            {
+                throw new InvalidOperationException("Response content is not a valid boolean.");
+            }
+
+
+            //return result;
         }
+
     }
 }

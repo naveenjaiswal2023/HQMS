@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using SharedInfrastructure.Settings;
 using System.Security.Claims;
 using System.Text;
 
@@ -39,51 +40,77 @@ if (string.IsNullOrWhiteSpace(dbPassword))
 var actualConnectionString = connTemplate.Replace("_QmsDbPassword_", dbPassword);
 Console.WriteLine($"[ENV: {env.EnvironmentName}] Connection String SET: {(!string.IsNullOrWhiteSpace(actualConnectionString))}");
 
-// ✅ JWT Authentication Setup
-var jwtKey = config["JwtSettings:Key"];
-if (string.IsNullOrEmpty(jwtKey))
+//// ✅ JWT Authentication Setup
+//var jwtKey = config["JwtSettings:Key"];
+//if (string.IsNullOrEmpty(jwtKey))
+//    throw new InvalidOperationException("JWT secret key is missing in configuration.");
+
+//builder.Services.AddAuthentication(options =>
+//{
+//    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+//    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+//})
+//.AddJwtBearer(options =>
+//{
+//    options.TokenValidationParameters = new TokenValidationParameters
+//    {
+//        ValidateIssuer = true,
+//        ValidIssuer = config["JwtSettings:Issuer"],
+
+//        ValidateAudience = true,
+//        ValidAudience = config["JwtSettings:Audience"],
+
+//        ValidateIssuerSigningKey = true,
+//        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+
+//        ValidateLifetime = true,
+//        ClockSkew = TimeSpan.Zero,
+
+//        NameClaimType = ClaimTypes.NameIdentifier,
+//        RoleClaimType = ClaimTypes.Role
+//    };
+
+// ------------------- JWT Settings -------------------
+var jwtSettingsSection = config.GetSection("JwtSettings");
+builder.Services.Configure<JwtSettings>(jwtSettingsSection);
+var jwtSettings = jwtSettingsSection.Get<JwtSettings>();
+if (string.IsNullOrWhiteSpace(jwtSettings.Key))
     throw new InvalidOperationException("JWT secret key is missing in configuration.");
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+// ------------------- Authentication -------------------
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidIssuer = config["JwtSettings:Issuer"],
-
-        ValidateAudience = true,
-        ValidAudience = config["JwtSettings:Audience"],
-
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero,
-
-        NameClaimType = ClaimTypes.NameIdentifier,
-        RoleClaimType = ClaimTypes.Role
-    };
-
-    options.Events = new JwtBearerEvents
-    {
-        OnTokenValidated = context =>
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            var claims = context.Principal?.Claims;
-            var hasRole = claims?.Any(c => c.Type == ClaimTypes.Role) == true;
-            var hasClientId = claims?.Any(c => c.Type == "client_id") == true;
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = ClaimTypes.NameIdentifier,
+            RoleClaimType = ClaimTypes.Role
+        };
+    });
 
-            if (!hasRole && !hasClientId)
-                context.Fail("Token does not contain required claims (role or client_id).");
+//options.Events = new JwtBearerEvents
+//    {
+//        OnTokenValidated = context =>
+//        {
+//            var claims = context.Principal?.Claims;
+//            var hasRole = claims?.Any(c => c.Type == ClaimTypes.Role) == true;
+//            var hasClientId = claims?.Any(c => c.Type == "client_id") == true;
 
-            return Task.CompletedTask;
-        }
-    };
-});
+//            if (!hasRole && !hasClientId)
+//                context.Fail("Token does not contain required claims (role or client_id).");
+
+//            return Task.CompletedTask;
+//        }
+//    };
+//});
 
 // ✅ Authorization policies
 builder.Services.AddAuthorization(options =>
