@@ -73,22 +73,6 @@ namespace AppointmentService.Application.Handlers.Commands
             if (hasConflict)
                 throw new ConflictException("Doctor already has an appointment during this time slot");
 
-            // Replace this block:
-            // var appointment = Appointment.Create(
-            //     request.Title,
-            //     request.Description,
-            //     request.StartDateTime,
-            //     request.EndDateTime,
-            //     request.PatientId,
-            //     request.DoctorId,
-            //     request.HospitalId,
-            //     request.Location,
-            //     request.Type,
-            //     request.Fee,
-            //     request.SendReminder,
-            //     request.ReminderMinutesBefore);
-
-            // With the following, using correct argument types:
             var appointment = Appointment.Create(
                 request.Title,
                 request.Description,

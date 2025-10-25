@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Extensions.Http;
+using SharedInfrastructure.DTO;
 using SharedInfrastructure.ExternalServices;
 using SharedInfrastructure.ExternalServices.Interfaces;
 using SharedInfrastructure.Http;
@@ -50,6 +51,7 @@ namespace AppointmentService.Infrastructure
             services.AddSingleton<IAzureServiceBusPublisher, AzureServiceBusPublisher>();
 
             // ✅ External API configuration
+            services.Configure<ClientCredentialDto>(configuration.GetSection("ServiceAuth"));
             services.Configure<ServiceApiOptions>(configuration.GetSection("ServicesApi"));
 
             // ✅ Token provider & handler
